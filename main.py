@@ -1,14 +1,16 @@
 """
 MedX — Medical Content Recommender API
 Prototype demonstrating hybrid recommender systems for the coliquio doctor platform.
-
-Frontend is served by Vercel CDN from /public.
-This file handles all /api/* routes as a serverless function.
 """
 
+from pathlib import Path
+
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
 
 from recommender.engine import MedXRecommender
+
+PUBLIC_DIR = Path(__file__).parent / "public"
 
 app = FastAPI(
     title="MedX Recommender",
@@ -25,6 +27,15 @@ def get_rec() -> MedXRecommender:
     if _recommender is None:
         _recommender = MedXRecommender()
     return _recommender
+
+
+# ---------------------------------------------------------------------------
+# Frontend
+# ---------------------------------------------------------------------------
+
+@app.get("/", include_in_schema=False)
+async def root():
+    return FileResponse(PUBLIC_DIR / "index.html")
 
 
 # ---------------------------------------------------------------------------
