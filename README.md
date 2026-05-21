@@ -115,5 +115,5 @@ Or connect the repo at [vercel.com/new](https://vercel.com/new) — Vercel auto-
 ## Data
 
 - **15 doctors** across 8 specialties
-- **32 medical articles** — guidelines, reviews, clinical evidence, education
+- **40 medical articles** — guidelines, reviews, clinical evidence, education, and quick lunch reads
 - **75+ reading interactions** with ratings (1–5)
