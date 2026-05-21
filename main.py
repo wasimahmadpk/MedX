@@ -139,12 +139,9 @@ _HTML = """<!DOCTYPE html>
     <div class="card">
       <div class="card-header">About this prototype</div>
       <div class="card-body" style="font-size:.78rem;color:var(--gray-600);line-height:1.6;">
-        <p><strong>Hybrid recommender</strong> combining:</p>
-        <ul style="margin:.5rem 0 .5rem 1rem;">
-          <li><strong>TF-IDF + cosine similarity</strong> (content-based)</li>
-          <li><strong>SVD matrix factorization</strong> (collaborative, numpy)</li>
-        </ul>
-        <p>Built with <strong>FastAPI · scikit-learn · NumPy · Pandas</strong></p>
+        <p><strong>MedX</strong> helps doctors discover the most relevant medical content for them.</p>
+        <p style="margin-top:.6rem;">Select a doctor, click <strong>Get Recommendations</strong>, and the system surfaces articles tailored to their specialty and reading history.</p>
+        <p style="margin-top:.6rem;">Click any article to see similar content. Use the blend slider to shift between personalised and specialty-based suggestions.</p>
       </div>
     </div>
   </aside>
