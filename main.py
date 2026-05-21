@@ -98,7 +98,7 @@ _HTML = """<!DOCTYPE html>
 </head>
 <body>
 <header>
-  <div class="logo">Med<span>X</span> <small style="font-size:.75rem;font-weight:400;opacity:.7">Recommender</small></div>
+  <div class="logo">Med<span>X</span></div>
 </header>
 <div class="layout">
   <aside class="sidebar">
