@@ -99,7 +99,6 @@ _HTML = """<!DOCTYPE html>
 <body>
 <header>
   <div class="logo">Med<span>X</span> <small style="font-size:.75rem;font-weight:400;opacity:.7">Recommender</small></div>
-  <span class="badge">PROTOTYPE · coliquio</span>
 </header>
 <div class="layout">
   <aside class="sidebar">
