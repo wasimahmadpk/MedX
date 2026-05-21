@@ -11,14 +11,14 @@ using a **hybrid approach** combining:
 | Method | Technique | Library |
 |---|---|---|
 | Content-based filtering | TF-IDF + cosine similarity | scikit-learn |
-| Collaborative filtering | SVD matrix factorization | scikit-surprise |
+| Collaborative filtering | SVD matrix factorization | numpy (pure, no extra deps) |
 
 ## Tech Stack
 
 - **API**: FastAPI + Uvicorn
-- **ML**: scikit-learn, scikit-surprise, Pandas, NumPy
-- **Frontend**: Vanilla HTML/CSS/JS (no build step)
-- **Deploy**: Render
+- **ML**: scikit-learn, Pandas, NumPy (SVD via numpy.linalg)
+- **Frontend**: Vanilla HTML/CSS/JS served via Vercel CDN
+- **Deploy**: Vercel
 
 ## Run locally
 
@@ -49,9 +49,11 @@ uvicorn main:app --reload
 
 Interactive API docs: `http://localhost:8000/docs`
 
-## Deploy to Render
+## Deploy to Vercel
 
-1. Push to GitHub
-2. Create a new **Web Service** on [render.com](https://render.com)
-3. Connect your repo — Render auto-detects `render.yaml`
-4. Deploy 🚀
+```bash
+npm i -g vercel
+vercel --prod
+```
+
+Or connect the GitHub repo at [vercel.com/new](https://vercel.com/new) — Vercel auto-detects `vercel.json`.
