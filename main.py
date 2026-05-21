@@ -103,6 +103,25 @@ _HTML = """<!DOCTYPE html>
     .complexity-bar { width:40px; height:4px; background:var(--gray-200); border-radius:4px; overflow:hidden; display:inline-block; vertical-align:middle; margin-left:3px; }
     .complexity-fill { height:100%; border-radius:4px; background: var(--blue-mid); }
     .ctx-badge { font-size:.62rem; background:var(--blue-light); color:var(--blue); padding:2px 6px; border-radius:20px; font-weight:600; }
+    /* Modal */
+    .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:200; align-items:center; justify-content:center; padding:1rem; }
+    .modal-overlay.open { display:flex; }
+    .modal { background:white; border-radius: 14px; box-shadow:0 20px 60px rgba(0,0,0,.2); max-width:540px; width:100%; max-height:90vh; overflow-y:auto; }
+    .modal-header { padding:1.2rem 1.4rem .8rem; border-bottom:1px solid var(--gray-100); display:flex; justify-content:space-between; align-items:flex-start; gap:1rem; }
+    .modal-header h2 { font-size:1rem; font-weight:700; line-height:1.4; color:var(--gray-800); }
+    .modal-close { background:none; border:none; font-size:1.3rem; cursor:pointer; color:var(--gray-400); flex-shrink:0; padding:0; line-height:1; }
+    .modal-close:hover { color:var(--gray-800); }
+    .modal-body { padding:1rem 1.4rem 1.4rem; display:flex; flex-direction:column; gap:.9rem; }
+    .modal-meta { display:flex; flex-wrap:wrap; gap:.5rem; align-items:center; }
+    .modal-summary { font-size:.85rem; color:var(--gray-600); line-height:1.65; }
+    .modal-stats { display:flex; gap:1.2rem; font-size:.78rem; color:var(--gray-600); background:var(--gray-50); border-radius:8px; padding:.6rem .9rem; }
+    .modal-stat { display:flex; flex-direction:column; gap:.15rem; }
+    .modal-stat label { font-size:.65rem; text-transform:uppercase; letter-spacing:.6px; color:var(--gray-400); font-weight:600; }
+    .modal-stat span { font-weight:600; color:var(--gray-800); }
+    .modal-similar-btn { align-self:flex-start; }
+    .modal-similar-list { display:flex; flex-direction:column; gap:.4rem; margin-top:.2rem; }
+    .modal-sim-item { font-size:.78rem; padding:.45rem .65rem; background:var(--gray-50); border-radius:6px; cursor:pointer; border-left:3px solid var(--blue-light); color:var(--gray-700); transition:background .15s; }
+    .modal-sim-item:hover { background:var(--blue-light); }
   </style>
 </head>
 <body>
@@ -182,12 +201,28 @@ _HTML = """<!DOCTYPE html>
         </div>
       </div>
     </div>
-    <div class="similar-panel" id="similarPanel" style="display:none;">
-      <div class="panel-header" id="similarTitle">Similar Articles</div>
-      <div class="similar-list" id="similarList"></div>
-    </div>
   </main>
 </div>
+<!-- Article Modal -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+  <div class="modal" id="modal">
+    <div class="modal-header">
+      <h2 id="modalTitle"></h2>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-meta" id="modalMeta"></div>
+      <div class="modal-stats" id="modalStats"></div>
+      <p class="modal-summary" id="modalSummary"></p>
+      <div class="tags" id="modalTags"></div>
+      <button class="btn modal-similar-btn" onclick="loadModalSimilar()" id="similarBtn" style="background:var(--gray-100);color:var(--gray-700);font-size:.78rem;padding:.4rem .85rem;">
+        Show similar articles
+      </button>
+      <div class="modal-similar-list" id="modalSimilarList" style="display:none;"></div>
+    </div>
+  </div>
+</div>
+
 <script>
 const API = '';
 let allArticles = [];
@@ -296,7 +331,7 @@ function buildArticleCard(art, showScore = false) {
     </div>` : ''}
     ${showScore ? `<div class="art-score"><span>Relevance</span><div class="score-bar"><div class="score-fill" style="width:${scorePct}%"></div></div><span>${scorePct}%</span></div>` : ''}
   `;
-  card.onclick = () => loadSimilar(art.id, art.title);
+  card.onclick = () => openModal(art);
   return card;
 }
 
@@ -323,22 +358,66 @@ function renderHistory() {
   });
 }
 
-async function loadSimilar(articleId, title) {
-  document.querySelectorAll('.article-card').forEach(c => c.classList.remove('selected'));
-  document.querySelectorAll(`[data-id="${articleId}"]`).forEach(c => c.classList.add('selected'));
-  const res = await fetch(`${API}/api/articles/${articleId}/similar?n=4`);
+let _modalArticle = null;
+
+function openModal(art) {
+  _modalArticle = art;
+  document.getElementById('modalTitle').textContent = art.title;
+
+  // Meta badges
+  const meta = document.getElementById('modalMeta');
+  meta.innerHTML = `
+    <span class="tag specialty-tag">${art.specialty.replace(/_/g,' ')}</span>
+    <span class="tag">${art.type.replace(/_/g,' ')}</span>
+    ${art.context_icon ? `<span class="ctx-badge">${art.context_icon} ${art.context_label}</span>` : ''}
+  `;
+
+  // Stats
+  const complexPct = art.complexity_score != null ? Math.round(art.complexity_score * 100) : '—';
+  document.getElementById('modalStats').innerHTML = `
+    <div class="modal-stat"><label>Read time</label><span>⏱ ${art.reading_time_minutes ?? '—'} min</span></div>
+    <div class="modal-stat"><label>Complexity</label><span>${complexPct}%</span></div>
+    ${art.score != null ? `<div class="modal-stat"><label>Relevance</label><span>${Math.round(art.score*100)}%</span></div>` : ''}
+  `;
+
+  document.getElementById('modalSummary').textContent = art.summary;
+
+  // Tags
+  const tagsEl = document.getElementById('modalTags');
+  tagsEl.innerHTML = art.tags.map(t => `<span class="tag">${t}</span>`).join('');
+
+  // Reset similar section
+  document.getElementById('modalSimilarList').style.display = 'none';
+  document.getElementById('modalSimilarList').innerHTML = '';
+  document.getElementById('similarBtn').textContent = 'Show similar articles';
+
+  document.getElementById('modalOverlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeModal(e) {
+  if (e && e.target !== document.getElementById('modalOverlay') && e.type === 'click') return;
+  document.getElementById('modalOverlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+async function loadModalSimilar() {
+  if (!_modalArticle) return;
+  const btn = document.getElementById('similarBtn');
+  btn.textContent = 'Loading…';
+  const res = await fetch(`${API}/api/articles/${_modalArticle.id}/similar?n=4`);
   const data = await res.json();
-  document.getElementById('similarTitle').textContent = `Similar to: "${title}"`;
-  const list = document.getElementById('similarList');
-  list.innerHTML = '';
+  const list = document.getElementById('modalSimilarList');
+  list.innerHTML = '<div style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--gray-400);margin-bottom:.3rem;">Similar articles</div>';
   data.similar.forEach(art => {
     const item = document.createElement('div');
-    item.className = 'similar-item';
-    item.innerHTML = `<div class="sim-dot"></div><div><div class="sim-title">${art.title}</div><div class="sim-meta">${art.specialty.replace(/_/g,' ')} · ${art.type.replace(/_/g,' ')} · ${Math.round(art.similarity*100)}% similar</div></div>`;
-    item.onclick = () => loadSimilar(art.id, art.title);
+    item.className = 'modal-sim-item';
+    item.innerHTML = `<strong>${art.title}</strong><br><span style="color:var(--gray-400)">${art.specialty.replace(/_/g,' ')} · ⏱ ${art.reading_time_minutes} min · ${Math.round(art.similarity*100)}% similar</span>`;
+    item.onclick = () => openModal(art);
     list.appendChild(item);
   });
-  document.getElementById('similarPanel').style.display = 'block';
+  list.style.display = 'flex';
+  btn.style.display = 'none';
 }
 
 function setLoading(on) {
