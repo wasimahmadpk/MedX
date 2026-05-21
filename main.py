@@ -165,11 +165,10 @@ _HTML = """<!DOCTYPE html>
       </div>
     </div>
     <div class="card">
-      <div class="card-header">About this prototype</div>
+      <div class="card-header">About MedX</div>
       <div class="card-body" style="font-size:.78rem;color:var(--gray-600);line-height:1.6;">
-        <p><strong>MedX</strong> helps doctors discover the most relevant medical content for them.</p>
-        <p style="margin-top:.6rem;">Select a doctor, click <strong>Get Recommendations</strong>, and the system surfaces articles tailored to their specialty and reading history.</p>
-        <p style="margin-top:.6rem;">Click any article to see similar content. Use the blend slider to shift between personalised and specialty-based suggestions.</p>
+        <p>Doctors are overwhelmed with medical literature. <strong>MedX</strong> cuts through the noise — surfacing the right article, for the right doctor, at the right time.</p>
+        <p style="margin-top:.6rem;">It learns from reading behaviour and adapts to the time of day, so a busy lunch break gets quick reads while evenings get deeper content.</p>
       </div>
     </div>
   </aside>
