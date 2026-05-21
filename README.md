@@ -78,7 +78,7 @@ final_score = hybrid_score × (1 + 0.3 × context_fit)
 |---|---|---|
 | GET | `/api/doctors` | List all doctors |
 | GET | `/api/doctors/{id}` | Doctor profile + reading history |
-| GET | `/api/recommend/{id}` | Recommendations (`?n=6&alpha=0.5&hour=14`) |
+| GET | `/api/recommend/{id}` | Recommendations (`?n=4&alpha=0.5&hour=14`, max 4) |
 | GET | `/api/articles` | All articles |
 | GET | `/api/articles/{id}/similar` | Similar articles |
 | GET | `/api/health` | Health check |
@@ -115,5 +115,5 @@ Or connect the repo at [vercel.com/new](https://vercel.com/new) — Vercel auto-
 ## Data
 
 - **15 doctors** across 8 specialties
-- **22 medical articles** — guidelines, reviews, clinical evidence, education
-- **60+ reading interactions** with ratings (1–5)
+- **32 medical articles** — guidelines, reviews, clinical evidence, education
+- **75+ reading interactions** with ratings (1–5)

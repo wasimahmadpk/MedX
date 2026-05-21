@@ -164,11 +164,12 @@ class MedXRecommender:
     def recommend(
         self,
         doctor_id: str,
-        n: int = 6,
+        n: int = 4,
         alpha: float = 0.5,
         exclude_read: bool = True,
         hour: int | None = None,
     ) -> list[dict]:
+        n = min(max(n, 1), 4)
         content_scores = self._content_scores_for_doctor(doctor_id)
         collab_scores  = self._collab_scores_for_doctor(doctor_id)
 

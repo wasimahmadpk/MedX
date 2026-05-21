@@ -147,6 +147,66 @@ ARTICLES = [
      "specialty": "radiology", "type": "guidelines",
      "summary": "Updated LDCT screening eligibility criteria and reporting standards (Lung-RADS 2025).",
      "complexity_score": 0.5, "reading_time_minutes": 7},
+
+    # Additional cardiology
+    {"id": "a23", "title": "Statin Therapy in Primary Prevention: Who Benefits in 2025?",
+     "tags": ["cardiology", "lipids", "statins", "prevention"],
+     "specialty": "cardiology", "type": "guidelines",
+     "summary": "Updated risk-based criteria for initiating statins in primary cardiovascular prevention.",
+     "complexity_score": 0.65, "reading_time_minutes": 9},
+    {"id": "a24", "title": "TAVR vs Surgical AVR: Quick Decision Guide",
+     "tags": ["cardiology", "TAVR", "valve disease", "intervention"],
+     "specialty": "cardiology", "type": "clinical_guidance",
+     "summary": "When to refer for transcatheter aortic valve replacement versus open surgery.",
+     "complexity_score": 0.55, "reading_time_minutes": 6},
+
+    # Additional neurology
+    {"id": "a25", "title": "First-Line Antiseizure Drugs: Practical Selection",
+     "tags": ["neurology", "epilepsy", "pharmacology"],
+     "specialty": "neurology", "type": "clinical_guidance",
+     "summary": "Choosing initial antiseizure therapy based on seizure type, age, and comorbidities.",
+     "complexity_score": 0.6, "reading_time_minutes": 7},
+    {"id": "a26", "title": "Early Signs of Dementia GPs Should Not Miss",
+     "tags": ["neurology", "dementia", "diagnosis", "general_practice"],
+     "specialty": "neurology", "type": "education",
+     "summary": "Subtle cognitive and functional red flags for timely referral and workup.",
+     "complexity_score": 0.35, "reading_time_minutes": 5},
+
+    # Additional oncology
+    {"id": "a27", "title": "Colorectal Cancer Screening: FIT vs Colonoscopy",
+     "tags": ["oncology", "colorectal", "screening", "prevention"],
+     "specialty": "oncology", "type": "guidelines",
+     "summary": "Comparing stool-based screening intervals and colonoscopy pathways by risk group.",
+     "complexity_score": 0.45, "reading_time_minutes": 6},
+    {"id": "a28", "title": "Managing Immune-Related Adverse Events from Checkpoint Inhibitors",
+     "tags": ["oncology", "immunotherapy", "toxicity", "emergency"],
+     "specialty": "oncology", "type": "clinical_guidance",
+     "summary": "Recognition and first-line management of common irAEs in outpatient and acute settings.",
+     "complexity_score": 0.85, "reading_time_minutes": 15},
+
+    # Additional pediatrics & general practice
+    {"id": "a29", "title": "Childhood Obesity: First-Line Lifestyle and When to Refer",
+     "tags": ["pediatrics", "obesity", "lifestyle", "metabolic"],
+     "specialty": "pediatrics", "type": "clinical_guidance",
+     "summary": "Structured lifestyle counselling, screening labs, and referral thresholds in children.",
+     "complexity_score": 0.4, "reading_time_minutes": 5},
+    {"id": "a30", "title": "Vitamin D Deficiency in Primary Care: Test or Treat?",
+     "tags": ["general_practice", "vitamin D", "supplementation", "bone health"],
+     "specialty": "general_practice", "type": "review",
+     "summary": "When to measure 25-OH vitamin D and evidence-based supplementation strategies.",
+     "complexity_score": 0.3, "reading_time_minutes": 4},
+
+    # Additional dermatology & psychiatry
+    {"id": "a31", "title": "Plaque Psoriasis: Biologic Options in 5 Minutes",
+     "tags": ["dermatology", "psoriasis", "biologics", "immunology"],
+     "specialty": "dermatology", "type": "education",
+     "summary": "Quick comparison of IL-17, IL-23, and TNF inhibitors for moderate plaque psoriasis.",
+     "complexity_score": 0.5, "reading_time_minutes": 5},
+    {"id": "a32", "title": "Generalised Anxiety Disorder: SSRI Selection and Monitoring",
+     "tags": ["psychiatry", "anxiety", "SSRI", "pharmacology"],
+     "specialty": "psychiatry", "type": "clinical_guidance",
+     "summary": "First-line SSRI choices, titration, and follow-up for GAD in outpatient practice.",
+     "complexity_score": 0.55, "reading_time_minutes": 7},
 ]
 
 # Reading interactions: (doctor_id, article_id, rating 1-5)
@@ -186,4 +246,12 @@ INTERACTIONS = [
     ("d1",  "a18", 3), ("d2",  "a20", 3), ("d4",  "a9",  3),
     ("d6",  "a20", 4), ("d8",  "a5",  3), ("d9",  "a10", 4),
     ("d11", "a17", 4), ("d12", "a9",  3), ("d3",  "a22", 4),
+
+    # New articles — specialty reads
+    ("d1",  "a23", 4), ("d4",  "a23", 5), ("d11", "a24", 4),
+    ("d2",  "a25", 4), ("d6",  "a25", 5), ("d8",  "a26", 4),
+    ("d3",  "a27", 4), ("d7",  "a28", 3), ("d5",  "a29", 5),
+    ("d13", "a29", 4), ("d8",  "a30", 5), ("d14", "a30", 4),
+    ("d9",  "a31", 4), ("d15", "a31", 5), ("d10", "a32", 4),
+    ("d12", "a28", 3), ("d1",  "a24", 3), ("d14", "a26", 4),
 ]

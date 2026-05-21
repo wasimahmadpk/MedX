@@ -5,7 +5,7 @@ Prototype demonstrating hybrid recommender systems for the coliquio doctor platf
 
 from datetime import datetime, timezone
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse
 
 from recommender.engine import MedXRecommender, get_time_slot
@@ -263,7 +263,7 @@ async function fetchRecommendations() {
   const hour = new Date().getHours();
   setLoading(true);
   switchTab('rec');
-  const res = await fetch(`${API}/api/recommend/${id}?n=6&alpha=${alpha}&hour=${hour}`);
+  const res = await fetch(`${API}/api/recommend/${id}?n=4&alpha=${alpha}&hour=${hour}`);
   const data = await res.json();
   setLoading(false);
   document.getElementById('emptyState').style.display = 'none';
@@ -476,7 +476,7 @@ async def get_doctor(doctor_id: str):
 @app.get("/api/recommend/{doctor_id}", tags=["Recommendations"])
 async def recommend_for_doctor(
     doctor_id: str,
-    n: int = 6,
+    n: int = Query(4, ge=1, le=4, description="Number of recommendations (max 4)"),
     alpha: float = 0.5,
     exclude_read: bool = True,
     hour: int | None = None,
