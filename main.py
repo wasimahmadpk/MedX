@@ -167,8 +167,7 @@ _HTML = """<!DOCTYPE html>
     <div class="card">
       <div class="card-header">About MedX</div>
       <div class="card-body" style="font-size:.78rem;color:var(--gray-600);line-height:1.6;">
-        <p>Doctors are overwhelmed with medical literature. <strong>MedX</strong> cuts through the noise — surfacing the right article, for the right doctor, at the right time.</p>
-        <p style="margin-top:.6rem;">It learns from reading behaviour and adapts to the time of day, so a busy lunch break gets quick reads while evenings get deeper content.</p>
+        <p>The right medical article, for the right doctor, at the right time.</p>
       </div>
     </div>
   </aside>
