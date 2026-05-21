@@ -3,10 +3,12 @@ MedX — Medical Content Recommender API
 Prototype demonstrating hybrid recommender systems for the coliquio doctor platform.
 """
 
+from datetime import datetime, timezone
+
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 
-from recommender.engine import MedXRecommender
+from recommender.engine import MedXRecommender, get_time_slot
 
 # Embed the frontend HTML inline so Vercel's Python builder packages it correctly.
 # (Vercel only bundles .py files — external file references like FileResponse break.)
@@ -94,6 +96,13 @@ _HTML = """<!DOCTYPE html>
     .btn { display: inline-flex; align-items: center; gap: .4rem; padding: .5rem 1rem; background: var(--blue); color: white; border: none; border-radius: 6px; font-size: .85rem; font-weight: 600; cursor: pointer; transition: background .2s; }
     .btn:hover { background: var(--blue-mid); }
     .btn:disabled { background: var(--gray-400); cursor: not-allowed; }
+    .context-banner { display:none; background: var(--blue-light); border: 1px solid #bfdbfe; border-radius: 8px; padding: .6rem .9rem; margin-bottom: 1rem; font-size: .8rem; color: var(--blue); display:flex; align-items:center; gap:.5rem; }
+    .context-banner strong { font-weight: 700; }
+    .art-meta { display:flex; align-items:center; gap:.75rem; margin-top:.5rem; font-size:.7rem; color:var(--gray-400); }
+    .art-meta span { display:flex; align-items:center; gap:.2rem; }
+    .complexity-bar { width:40px; height:4px; background:var(--gray-200); border-radius:4px; overflow:hidden; display:inline-block; vertical-align:middle; margin-left:3px; }
+    .complexity-fill { height:100%; border-radius:4px; background: var(--blue-mid); }
+    .ctx-badge { font-size:.62rem; background:var(--blue-light); color:var(--blue); padding:2px 6px; border-radius:20px; font-weight:600; }
   </style>
 </head>
 <body>
@@ -155,6 +164,7 @@ _HTML = """<!DOCTYPE html>
           <button class="tab-btn" id="tabHistory" onclick="switchTab('history')">Reading History</button>
         </div>
         <div class="spinner" id="spinner"></div>
+        <div class="context-banner" id="contextBanner" style="display:none;"></div>
         <div class="empty-state" id="emptyState">
           <div class="icon">🔬</div>
           <h3>Select a doctor to get started</h3>
@@ -217,14 +227,24 @@ async function fetchRecommendations() {
   const id = document.getElementById('doctorSelect').value;
   if (!id) return;
   const alpha = document.getElementById('alphaSlider').value;
+  const hour = new Date().getHours();
   setLoading(true);
   switchTab('rec');
-  const res = await fetch(`${API}/api/recommend/${id}?n=6&alpha=${alpha}`);
+  const res = await fetch(`${API}/api/recommend/${id}?n=6&alpha=${alpha}&hour=${hour}`);
   const data = await res.json();
   setLoading(false);
   document.getElementById('emptyState').style.display = 'none';
   document.getElementById('recPanel').style.display = 'block';
   document.getElementById('recSubtitle').textContent = `Top recommendations for ${data.doctor.name} · blend α=${alpha}`;
+
+  // Show context banner
+  if (data.context) {
+    const c = data.context;
+    const banner = document.getElementById('contextBanner');
+    banner.style.display = 'flex';
+    banner.innerHTML = `<span style="font-size:1.1rem">${c.icon}</span> <span><strong>${c.label}</strong> — showing articles that fit your reading time right now (≤${c.max_reading_min} min, complexity match)</span>`;
+  }
+
   const grid = document.getElementById('recGrid');
   grid.innerHTML = '';
   data.recommendations.forEach(art => grid.appendChild(buildArticleCard(art, true)));
@@ -258,14 +278,22 @@ function buildArticleCard(art, showScore = false) {
   card.dataset.id = art.id;
   const scoreVal = art.score ?? art.similarity ?? 0;
   const scorePct = Math.round(scoreVal * 100);
+  const complexPct = art.complexity_score != null ? Math.round(art.complexity_score * 100) : null;
+  const readTime = art.reading_time_minutes ?? null;
+  const ctxBadge = art.context_icon ? `<span class="ctx-badge">${art.context_icon} ${art.context_label}</span>` : '';
   card.innerHTML = `
-    <div class="art-type">${art.type.replace(/_/g,' ')}</div>
+    <div class="art-type">${art.type.replace(/_/g,' ')}${ctxBadge ? ' · ' + ctxBadge : ''}</div>
     <div class="art-title">${art.title}</div>
     <div class="art-summary">${art.summary}</div>
     <div class="tags">
       <span class="tag specialty-tag">${art.specialty.replace(/_/g,' ')}</span>
       ${art.tags.slice(0,3).map(t => `<span class="tag">${t}</span>`).join('')}
     </div>
+    ${readTime != null ? `
+    <div class="art-meta">
+      <span>⏱ ${readTime} min read</span>
+      ${complexPct != null ? `<span>Complexity <div class="complexity-bar" style="display:inline-block"><div class="complexity-fill" style="width:${complexPct}%"></div></div></span>` : ''}
+    </div>` : ''}
     ${showScore ? `<div class="art-score"><span>Relevance</span><div class="score-bar"><div class="score-fill" style="width:${scorePct}%"></div></div><span>${scorePct}%</span></div>` : ''}
   `;
   card.onclick = () => loadSimilar(art.id, art.title);
@@ -317,6 +345,7 @@ function setLoading(on) {
   document.getElementById('spinner').style.display = on ? 'block' : 'none';
   document.getElementById('recPanel').style.display = 'none';
   document.getElementById('emptyState').style.display = 'none';
+  if (on) document.getElementById('contextBanner').style.display = 'none';
 }
 
 init();
@@ -373,17 +402,32 @@ async def recommend_for_doctor(
     n: int = 6,
     alpha: float = 0.5,
     exclude_read: bool = True,
+    hour: int | None = None,
 ):
     """
     Get personalised article recommendations for a doctor.
 
     - **alpha**: content-based weight 0–1 (0 = pure collaborative, 1 = pure content)
+    - **hour**: 0–23 hour of day for time-context re-ranking (omit to skip context)
     """
     doc = get_rec().get_doctor(doctor_id)
     if not doc:
         raise HTTPException(status_code=404, detail="Doctor not found")
-    recs = get_rec().recommend(doctor_id, n=n, alpha=alpha, exclude_read=exclude_read)
-    return {"doctor": doc, "recommendations": recs}
+
+    effective_hour = hour if hour is not None else datetime.now(timezone.utc).hour
+    slot = get_time_slot(effective_hour)
+    recs = get_rec().recommend(doctor_id, n=n, alpha=alpha, exclude_read=exclude_read, hour=effective_hour)
+    return {
+        "doctor": doc,
+        "recommendations": recs,
+        "context": {
+            "hour":  effective_hour,
+            "label": slot["label"],
+            "icon":  slot["icon"],
+            "ideal_complexity": slot["ideal_complexity"],
+            "max_reading_min":  slot["max_reading_min"],
+        },
+    }
 
 
 @app.get("/api/articles", tags=["Articles"])
