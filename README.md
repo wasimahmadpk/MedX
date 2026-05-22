@@ -1,31 +1,70 @@
-# MedX — Medical Content Recommender
+# MedX
 
-Doctors are overwhelmed with medical literature. MedX cuts through the noise — surfacing the right article, for the right doctor, at the right time of day.
+> The right medical article, for the right doctor, at the right time.
+
+MedX is a hybrid medical content recommender — a working prototype that personalises articles for doctors using specialty, reading behaviour, and **time of day**.
 
 ---
 
-## What It Does
+## Features
 
-MedX recommends personalised medical articles to doctors based on their **specialty**, **reading history**, and **time of day**. It uses a three-layer approach:
+- **Hybrid recommendations** — content-based (TF-IDF) + collaborative filtering (SVD)
+- **Context-aware ranking** — boosts short, simple reads at lunch; deeper content in the morning or evening
+- **Live tuning** — blend slider (α) to shift between content-based and collaborative signals
+- **Article modal** — click any article for summary, read time, complexity, and similar items
+- **Up to 4 recommendations** per request — focused, not overwhelming
+
+---
+
+## How It Works
+
+```
+┌─────────────────┐     ┌─────────────────┐     ┌──────────────────────┐
+│ Content-based   │     │ Collaborative   │     │ Time-context         │
+│ TF-IDF + cosine │  +  │ SVD factorisation│ ──► │ re-ranking by hour   │
+│ (specialty,     │     │ (reading history)│     │ (complexity + length)│
+│  tags, history) │     │                 │     │                      │
+└─────────────────┘     └─────────────────┘     └──────────────────────┘
+         │                       │                          │
+         └─────────── α blend ──┘                          │
+                              hybrid score ────────────────►│
+                                              final ranking │
+```
 
 | Layer | Method | Library |
 |---|---|---|
-| **Content-based** | TF-IDF vectorisation + cosine similarity | scikit-learn |
-| **Collaborative** | Mean-centred SVD matrix factorisation (R ≈ U·Σ·Vᵀ) | numpy |
-| **Time-context** | Complexity + reading time re-ranking by time of day | numpy |
+| Content-based | TF-IDF + cosine similarity | scikit-learn |
+| Collaborative | Mean-centred SVD (R ≈ U·Σ·Vᵀ) | NumPy |
+| Time-context | Rule-based re-ranking by hour | NumPy |
+
+**Hybrid score:** `α · content + (1 − α) · collaborative`  
+**Final score:** `hybrid × context_boost` (complexity + reading time vs time slot)
+
+### Time slots
+
+| Period | Hours | Prefers |
+|---|---|---|
+| Early Morning | 05–09 | Long, complex reads |
+| Morning Work | 09–12 | Medium length |
+| Lunch Break | 12–14 | Short (≤5 min), simple |
+| Afternoon Work | 14–18 | Medium |
+| Evening | 18–22 | Long, complex |
+| Late Night | 22–05 | Short reads |
+
+The UI sends the browser’s local hour automatically; the API accepts `?hour=0–23`.
 
 ---
 
-## Architecture
+## Project Structure
 
 ```
 MedX/
-├── main.py                  # FastAPI app — all /api/* routes + embedded frontend
+├── main.py              # FastAPI API + embedded frontend
 ├── recommender/
-│   └── engine.py            # Hybrid recommender (TF-IDF + SVD + context re-ranking)
+│   └── engine.py        # Hybrid engine + context re-ranker
 ├── data/
-│   └── seed_data.py         # Doctors, articles & reading interactions
-├── vercel.json              # Vercel deployment config
+│   └── seed_data.py     # Doctors, articles, interactions
+├── vercel.json          # Vercel deployment
 └── requirements.txt
 ```
 
@@ -35,55 +74,25 @@ MedX/
 
 | Layer | Technology |
 |---|---|
-| API | FastAPI + Uvicorn |
+| API | FastAPI, Uvicorn |
 | ML | scikit-learn, NumPy, Pandas |
-| Frontend | Vanilla HTML / CSS / JS |
-| Deployment | Vercel |
+| Frontend | HTML, CSS, JavaScript (embedded in `main.py`) |
+| Deploy | Vercel (Python serverless) |
 
 ---
 
-## How It Works
-
-### 1. Content-Based Filtering
-Each article is represented as a TF-IDF vector over its tags, specialty, and type. A doctor's profile is built from their specialty and reading history. Articles are ranked by cosine similarity to this profile.
-
-### 2. Collaborative Filtering (SVD)
-A doctor × article rating matrix is decomposed using truncated SVD:
-
-```
-R ≈ U · Σ · Vᵀ
-```
-
-Predicted ratings fill in the blanks — doctors with similar reading patterns get similar recommendations.
-
-### 3. Hybrid Blending
-```
-score = α · content_score + (1 − α) · collab_score
-```
-
-The α slider in the UI lets you tune the blend live.
-
-### 4. Time-Context Re-Ranking
-Each article has a `complexity_score` and `reading_time_minutes`. The system detects the time of day and boosts articles that fit — short simple reads at lunch, deeper content in the morning or evening.
-
-```
-final_score = hybrid_score × (1 + 0.3 × context_fit)
-```
-
----
-
-## API Reference
+## API
 
 | Method | Endpoint | Description |
 |---|---|---|
-| GET | `/api/doctors` | List all doctors |
-| GET | `/api/doctors/{id}` | Doctor profile + reading history |
-| GET | `/api/recommend/{id}` | Recommendations (`?n=4&alpha=0.5&hour=14`, max 4) |
+| GET | `/` | Web UI |
+| GET | `/api/doctors` | List doctors |
+| GET | `/api/doctors/{id}` | Profile + reading history |
+| GET | `/api/recommend/{id}` | Personalised recs (`?n=4&alpha=0.5&hour=12`, max 4) |
 | GET | `/api/articles` | All articles |
-| GET | `/api/articles/{id}/similar` | Similar articles |
+| GET | `/api/articles/{id}/similar` | Similar articles (content-based) |
 | GET | `/api/health` | Health check |
-
-Interactive docs at `/docs`.
+| GET | `/docs` | Swagger UI |
 
 ---
 
@@ -93,27 +102,38 @@ Interactive docs at `/docs`.
 git clone https://github.com/wasimahmadpk/MedX.git
 cd MedX
 python -m venv venv
-source venv/bin/activate
+source venv/bin/activate          # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 uvicorn main:app --reload
-# Open http://localhost:8000
 ```
+
+Open [http://localhost:8000](http://localhost:8000).
 
 ---
 
-## Deploy to Vercel
+## Deploy
+
+Connect the repo at [vercel.com/new](https://vercel.com/new) — Vercel reads `vercel.json` automatically.
 
 ```bash
 npm i -g vercel
 vercel --prod
 ```
 
-Or connect the repo at [vercel.com/new](https://vercel.com/new) — Vercel auto-reads `vercel.json`.
+---
+
+## Dataset (synthetic)
+
+| | Count |
+|---|---:|
+| Doctors | 15 (8 specialties) |
+| Articles | 40 (guidelines, reviews, education, quick lunch reads) |
+| Interactions | 90+ ratings (1–5) |
+
+Each article includes `complexity_score` (0–1) and `reading_time_minutes`. Fourteen articles are tagged for **lunch-break** reading (≤5 min, low complexity).
 
 ---
 
-## Data
+## License
 
-- **15 doctors** across 8 specialties
-- **40 medical articles** — guidelines, reviews, clinical evidence, education, and quick lunch reads
-- **75+ reading interactions** with ratings (1–5)
+MIT — use freely for learning and portfolio demos.
