@@ -1,21 +1,100 @@
 # MedX
 
-**Hybrid medical content recommender — personalised articles by specialty, behaviour, and time of day.**
+**Hybrid medical content recommender — the right article, for the right doctor, at the right time.**
 
+[![Live Demo](https://img.shields.io/badge/demo-live-009688?style=for-the-badge)](https://med-x-plum.vercel.app)
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
-[![scikit-learn](https://img.shields.io/badge/scikit--learn-ML-F7931E?logo=scikit-learn&logoColor=white)](https://scikit-learn.org/)
-[![Deploy](https://img.shields.io/badge/Deploy-Vercel-000000?logo=vercel&logoColor=white)](https://vercel.com/)
+[![Vercel](https://img.shields.io/badge/Deploy-Vercel-000000?logo=vercel&logoColor=white)](https://vercel.com/)
 
-> *The right medical article, for the right doctor, at the right time.*
+**[Try the live app →](https://med-x-plum.vercel.app)**
 
 ---
 
-## Overview
+## Contents
 
-Doctors face more medical content than they can read. MedX demonstrates how a recommender can cut through that noise: it ranks articles using **what the doctor specialises in**, **what similar doctors read**, and **when they are likely reading** — a short lunch break vs a quiet evening.
+- [Why MedX](#why-medx)
+- [Features](#features)
+- [How it works](#how-it-works)
+- [Quick start](#quick-start)
+- [API](#api)
+- [Dataset](#dataset)
+- [Deploy](#deploy)
+- [Author](#author)
 
-Built as a full-stack prototype: **FastAPI** backend, embedded web UI, deployable on **Vercel**.
+---
+
+## Why MedX
+
+Doctors are flooded with medical literature. A useful recommender must answer three questions:
+
+1. **Relevance** — Does this match the doctor's specialty and interests?
+2. **Behaviour** — Do similar doctors find it valuable?
+3. **Context** — Is now the right moment to read it (quick lunch read vs deep evening article)?
+
+MedX implements all three in a deployable prototype: hybrid ML ranking plus **context-aware re-ranking** by time of day.
+
+---
+
+## Features
+
+| Feature | Description |
+|---|---|
+| **Hybrid engine** | Content-based (TF-IDF) + collaborative filtering (SVD) |
+| **Context-aware ranking** | Boosts short reads at lunch, deeper content in the evening |
+| **Live α tuning** | Slider to blend content vs collaborative signals |
+| **Article modal** | Summary, read time, complexity, similar articles |
+| **Focused output** | Max **4** recommendations per request |
+| **Full stack** | FastAPI backend, embedded UI, one-click Vercel deploy |
+
+---
+
+## How it works
+
+```mermaid
+flowchart LR
+  A[Doctor profile\nspecialty + history] --> C[Content score\nTF-IDF]
+  B[Rating matrix\ndoctor × article] --> D[Collab score\nSVD]
+  C --> E["Hybrid\nα·C + (1−α)·S"]
+  D --> E
+  F[Hour of day] --> G[Context boost\ncomplexity + read time]
+  E --> H[Final ranking]
+  G --> H
+  H --> I[Top 4 articles]
+```
+
+### Stages
+
+| # | Stage | Input | Method |
+|---|---|---|---|
+| 1 | Content-based | Tags, specialty, reading history | TF-IDF + cosine similarity |
+| 2 | Collaborative | Doctor–article ratings | Mean-centred SVD (`R ≈ UΣVᵀ`) |
+| 3 | Hybrid blend | Both scores | `α·content + (1−α)·collab` |
+| 4 | Context re-rank | Hour, complexity, read time | Rule-based multiplier |
+
+### Time-aware context
+
+| Slot | Hours | What gets boosted |
+|---|---|---|
+| Early Morning | 05–09 | Long, complex |
+| Morning Work | 09–12 | Medium |
+| **Lunch Break** | **12–14** | **≤5 min, low complexity** |
+| Afternoon | 14–18 | Medium |
+| Evening | 18–22 | Long, complex |
+| Night | 22–05 | Short |
+
+The UI sends the browser's local hour automatically. Override via `?hour=12` on the API.
+
+### Prototype vs production
+
+| | MedX (this repo) | Production-scale system |
+|---|---|---|
+| Base model | TF-IDF + SVD | LightFM, deep rankers, etc. |
+| Time logic | Rule-based slots | Learned from engagement data |
+| Session / recency | — | Session models, time decay |
+| Evaluation | Interactive demo | A/B tests, CUPED, dwell time |
+
+MedX demonstrates the **architecture and concepts**; a production system would add learned temporal features and experimentation at scale.
 
 ---
 
@@ -24,77 +103,51 @@ Built as a full-stack prototype: **FastAPI** backend, embedded web UI, deployabl
 ```bash
 git clone https://github.com/wasimahmadpk/MedX.git
 cd MedX
-python -m venv venv && source venv/bin/activate
+python -m venv venv && source venv/bin/activate   # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 uvicorn main:app --reload
 ```
 
-Open **http://localhost:8000** → pick a doctor → **Get Recommendations**.
+1. Open [http://localhost:8000](http://localhost:8000)
+2. Select a doctor (e.g. **Dr. Anna Müller · cardiology**)
+3. Click **Get Recommendations**
+4. Try the **α slider** or click an article for details
 
 ---
 
-## What you can do in the UI
+## API
 
-1. **Select a doctor** — 15 profiles across 8 specialties  
-2. **Get Recommendations** — up to **4** personalised articles  
-3. **Adjust α** — balance content-based vs collaborative signals  
-4. **Click an article** — modal with summary, read time, complexity, similar items  
-5. **Context banner** — shows current time slot (e.g. Lunch Break) and why items fit  
+### Endpoints
 
----
-
-## Recommendation pipeline
-
-```
-  Content-based          Collaborative           Time-context
-  (TF-IDF + cosine)  +   (SVD)            →    re-ranking
-        │                      │                      │
-        └──── α · C + (1−α) · S ──── hybrid score ────┘
-                                          │
-                              final = hybrid × context_boost
-```
-
-| Stage | What it uses | Tech |
+| Method | Path | Description |
 |---|---|---|
-| **Content-based** | Article tags, specialty, type; doctor specialty & history | scikit-learn |
-| **Collaborative** | Doctor–article ratings matrix | NumPy SVD |
-| **Hybrid blend** | Tunable weight α (default 0.5) | — |
-| **Context-aware** | Hour of day, article complexity, reading time | Rule-based boost |
+| `GET` | `/` | Web UI |
+| `GET` | `/api/doctors` | All doctors |
+| `GET` | `/api/doctors/{id}` | Profile + reading history |
+| `GET` | `/api/recommend/{id}` | Personalised recs (max `n=4`) |
+| `GET` | `/api/articles` | All articles |
+| `GET` | `/api/articles/{id}/similar` | Similar articles |
+| `GET` | `/api/health` | Health check |
+| `GET` | `/docs` | Swagger UI |
 
-### Context-aware ranking
+### Parameters — `GET /api/recommend/{id}`
 
-Recommendations adapt to **time of day** — a simplified version of production context-aware systems:
-
-| Time slot | Hours | Ideal content |
+| Param | Default | Description |
 |---|---|---|
-| Early Morning | 05–09 | Long, in-depth |
-| Morning Work | 09–12 | Medium |
-| **Lunch Break** | **12–14** | **Short (≤5 min), low complexity** |
-| Afternoon Work | 14–18 | Medium |
-| Evening | 18–22 | Long, in-depth |
-| Late Night / Night | 22–05 | Short |
+| `n` | `4` | Number of results (max 4) |
+| `alpha` | `0.5` | Content weight (0 = collab only, 1 = content only) |
+| `hour` | auto | Hour 0–23 for context re-ranking |
 
-The UI passes the browser’s local hour; the API also accepts `?hour=0–23`.
-
----
-
-## Example API call
+### Example
 
 ```bash
-curl "http://localhost:8000/api/recommend/d1?n=4&alpha=0.5&hour=12"
+curl "https://med-x-plum.vercel.app/api/recommend/d1?n=4&alpha=0.5&hour=12"
 ```
-
-Response (abbreviated):
 
 ```json
 {
   "doctor": { "name": "Dr. Anna Müller", "specialty": "cardiology" },
-  "context": {
-    "hour": 12,
-    "label": "Lunch Break",
-    "icon": "🍽️",
-    "max_reading_min": 5
-  },
+  "context": { "label": "Lunch Break", "hour": 12, "max_reading_min": 5 },
   "recommendations": [
     {
       "title": "Vitamin D Deficiency in Primary Care: Test or Treat?",
@@ -108,18 +161,18 @@ Response (abbreviated):
 
 ---
 
-## API reference
+## Dataset
 
-| Method | Endpoint | Description |
-|---|---|---|
-| `GET` | `/` | Web UI |
-| `GET` | `/api/doctors` | List all doctors |
-| `GET` | `/api/doctors/{id}` | Profile + reading history |
-| `GET` | `/api/recommend/{id}` | Recommendations — `?n=4&alpha=0.5&hour=12` (max **n=4**) |
-| `GET` | `/api/articles` | All articles |
-| `GET` | `/api/articles/{id}/similar` | Similar articles (TF-IDF) |
-| `GET` | `/api/health` | Health check |
-| `GET` | `/docs` | Interactive Swagger docs |
+Synthetic data for demo and development:
+
+| | |
+|---|---|
+| Doctors | 15 across 8 specialties |
+| Articles | 40 (guidelines, reviews, education, quick reads) |
+| Lunch-friendly | 14 articles (≤5 min, complexity ≤ 0.35) |
+| Ratings | 94 interactions (1–5 stars) |
+
+Every article includes `complexity_score` and `reading_time_minutes`.
 
 ---
 
@@ -127,47 +180,20 @@ Response (abbreviated):
 
 ```
 MedX/
-├── main.py                 # FastAPI routes + embedded frontend
+├── main.py                 # FastAPI + embedded frontend
 ├── recommender/engine.py   # Hybrid model + context re-ranker
-├── data/seed_data.py       # Synthetic doctors, articles, ratings
+├── data/seed_data.py       # Doctors, articles, interactions
 ├── vercel.json
 └── requirements.txt
 ```
 
----
-
-## Tech stack
-
-| | |
-|---|---|
-| **Backend** | FastAPI, Uvicorn |
-| **ML** | scikit-learn, NumPy, Pandas |
-| **Frontend** | HTML, CSS, JavaScript |
-| **Deploy** | Vercel serverless Python |
+**Stack:** FastAPI · scikit-learn · NumPy · Pandas · Vercel
 
 ---
 
-## Dataset
+## Deploy
 
-Synthetic data modelling a doctor community platform:
-
-| Entity | Details |
-|---|---|
-| **Doctors** | 15 — cardiology, neurology, oncology, pediatrics, and more |
-| **Articles** | 40 — guidelines, reviews, clinical evidence, education |
-| **Quick reads** | 14 lunch-friendly articles (≤5 min, low complexity) |
-| **Interactions** | 94 doctor–article ratings (1–5) |
-
-Each article has `complexity_score` (0–1) and `reading_time_minutes`.
-
----
-
-## Deploy to Vercel
-
-1. Fork or import [github.com/wasimahmadpk/MedX](https://github.com/wasimahmadpk/MedX) at [vercel.com/new](https://vercel.com/new)  
-2. Deploy — `vercel.json` is included  
-
-Or via CLI:
+Import [github.com/wasimahmadpk/MedX](https://github.com/wasimahmadpk/MedX) at [vercel.com/new](https://vercel.com/new) — no extra config needed.
 
 ```bash
 npm i -g vercel && vercel --prod
@@ -177,10 +203,12 @@ npm i -g vercel && vercel --prod
 
 ## Author
 
-**Wasim Ahmad** — [GitHub](https://github.com/wasimahmadpk) · [Portfolio](https://wasimahmadpk.github.io/portfolio/) · [LinkedIn](https://www.linkedin.com/in/wasim-ahmad-73293767)
+**Wasim Ahmad**
+
+[Live demo](https://med-x-plum.vercel.app) · [GitHub](https://github.com/wasimahmadpk) · [Portfolio](https://wasimahmadpk.github.io/portfolio/) · [LinkedIn](https://www.linkedin.com/in/wasim-ahmad-73293767)
 
 ---
 
-## Related concepts
-
-Hybrid filtering · Matrix factorisation · Context-aware recommendation · Time-aware ranking · Personalisation · A/B experimentation (CUPED, variance reduction)
+<p align="center">
+  <sub>Hybrid filtering · Matrix factorisation · Context-aware recommendation · Time-aware ranking</sub>
+</p>
