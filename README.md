@@ -1,80 +1,96 @@
 # MedX
 
-**Hybrid medical content recommender — the right article, for the right doctor, at the right time.**
+**Personalised medical content for doctors — by specialty, behaviour, and time of day.**
 
-[![Live Demo](https://img.shields.io/badge/demo-live-009688?style=for-the-badge)](https://med-x-plum.vercel.app)
-[![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![Live Demo](https://img.shields.io/badge/🩺_live_demo-med--x--plum.vercel.app-009688?style=for-the-badge)](https://med-x-plum.vercel.app)
+[![Python 3.11+](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
-[![Vercel](https://img.shields.io/badge/Deploy-Vercel-000000?logo=vercel&logoColor=white)](https://vercel.com/)
+[![scikit-learn](https://img.shields.io/badge/scikit--learn-ML-F7931E?logo=scikit-learn&logoColor=white)](https://scikit-learn.org/)
 
-**[Try the live app →](https://med-x-plum.vercel.app)**
+**[Open live app →](https://med-x-plum.vercel.app)** · **[GitHub repo →](https://github.com/wasimahmadpk/MedX)**
 
----
-
-## Contents
-
-- [Why MedX](#why-medx)
-- [Features](#features)
-- [How it works](#how-it-works)
-- [Quick start](#quick-start)
-- [API](#api)
-- [Dataset](#dataset)
-- [Deploy](#deploy)
-- [Author](#author)
+MedX is a deployable hybrid recommender prototype: it ranks medical articles using **content similarity**, **collaborative filtering**, and **time-of-day context** — then serves up to **4** focused recommendations through a clean web UI.
 
 ---
 
-## Why MedX
+## At a glance
 
-Doctors are flooded with medical literature. A useful recommender must answer three questions:
+| | |
+|---|---|
+| **Problem** | Doctors see too much content; relevance and timing both matter |
+| **Approach** | Hybrid ML (TF-IDF + SVD) + context-aware re-ranking |
+| **Output** | Max 4 personalised articles per doctor |
+| **Stack** | FastAPI · scikit-learn · NumPy · Vercel |
+| **Data** | 15 doctors · 40 articles · 94 ratings (synthetic) |
 
-1. **Relevance** — Does this match the doctor's specialty and interests?
-2. **Behaviour** — Do similar doctors find it valuable?
-3. **Context** — Is now the right moment to read it (quick lunch read vs deep evening article)?
+---
 
-MedX implements all three in a deployable prototype: hybrid ML ranking plus **context-aware re-ranking** by time of day.
+## Try it in 30 seconds
+
+1. Open **[med-x-plum.vercel.app](https://med-x-plum.vercel.app)**
+2. Pick a doctor — e.g. *Dr. Anna Müller · cardiology*
+3. Click **Get Recommendations**
+4. Move the **α slider** (content ↔ collaborative blend)
+5. Click an article → summary, read time, complexity, similar items
+
+The context banner shows your time slot (e.g. **Lunch Break**) and why articles fit *right now*.
 
 ---
 
 ## Features
 
-| Feature | Description |
-|---|---|
-| **Hybrid engine** | Content-based (TF-IDF) + collaborative filtering (SVD) |
-| **Context-aware ranking** | Boosts short reads at lunch, deeper content in the evening |
-| **Live α tuning** | Slider to blend content vs collaborative signals |
-| **Article modal** | Summary, read time, complexity, similar articles |
-| **Focused output** | Max **4** recommendations per request |
-| **Full stack** | FastAPI backend, embedded UI, one-click Vercel deploy |
+- **Hybrid recommender** — TF-IDF content-based + SVD collaborative filtering  
+- **Context-aware ranking** — short reads at lunch; deeper articles in the evening  
+- **Tunable α** — live blend between content and collaborative signals  
+- **Article modal** — read time, complexity bar, similar articles  
+- **REST API** — Swagger docs at `/docs`  
+- **Serverless deploy** — one-click on Vercel  
 
 ---
 
 ## How it works
 
 ```mermaid
-flowchart LR
-  A[Doctor profile\nspecialty + history] --> C[Content score\nTF-IDF]
-  B[Rating matrix\ndoctor × article] --> D[Collab score\nSVD]
-  C --> E["Hybrid\nα·C + (1−α)·S"]
-  D --> E
-  F[Hour of day] --> G[Context boost\ncomplexity + read time]
-  E --> H[Final ranking]
-  G --> H
-  H --> I[Top 4 articles]
+flowchart TB
+  subgraph inputs [Inputs]
+    D[Doctor specialty + history]
+    R[Doctor × article ratings]
+    T[Hour of day]
+  end
+
+  subgraph models [Scoring]
+    C[Content score\nTF-IDF + cosine]
+    S[Collab score\nSVD factorisation]
+    H["Hybrid\nα·C + (1−α)·S"]
+    X[Context boost\ncomplexity + read time]
+  end
+
+  D --> C
+  R --> S
+  C --> H
+  S --> H
+  T --> X
+  H --> F[Final ranking]
+  X --> F
+  F --> O[Top 4 articles]
 ```
 
-### Stages
+**Formulas**
 
-| # | Stage | Input | Method |
-|---|---|---|---|
-| 1 | Content-based | Tags, specialty, reading history | TF-IDF + cosine similarity |
-| 2 | Collaborative | Doctor–article ratings | Mean-centred SVD (`R ≈ UΣVᵀ`) |
-| 3 | Hybrid blend | Both scores | `α·content + (1−α)·collab` |
-| 4 | Context re-rank | Hour, complexity, read time | Rule-based multiplier |
+```
+hybrid_score  = α · content + (1 − α) · collaborative
+final_score   = hybrid_score × context_boost
+```
 
-### Time-aware context
+| Stage | Method | Library |
+|---|---|---|
+| Content-based | TF-IDF on tags, specialty, type | scikit-learn |
+| Collaborative | Mean-centred SVD (`R ≈ UΣVᵀ`) | NumPy |
+| Context re-rank | Hour → ideal complexity & read length | Rule-based |
 
-| Slot | Hours | What gets boosted |
+### Time slots
+
+| Slot | Hours | Boosts |
 |---|---|---|
 | Early Morning | 05–09 | Long, complex |
 | Morning Work | 09–12 | Medium |
@@ -83,62 +99,38 @@ flowchart LR
 | Evening | 18–22 | Long, complex |
 | Night | 22–05 | Short |
 
-The UI sends the browser's local hour automatically. Override via `?hour=12` on the API.
-
-### Prototype vs production
-
-| | MedX (this repo) | Production-scale system |
-|---|---|---|
-| Base model | TF-IDF + SVD | LightFM, deep rankers, etc. |
-| Time logic | Rule-based slots | Learned from engagement data |
-| Session / recency | — | Session models, time decay |
-| Evaluation | Interactive demo | A/B tests, CUPED, dwell time |
-
-MedX demonstrates the **architecture and concepts**; a production system would add learned temporal features and experimentation at scale.
-
 ---
 
-## Quick start
+## Run locally
+
+**Requirements:** Python 3.11+
 
 ```bash
 git clone https://github.com/wasimahmadpk/MedX.git
 cd MedX
-python -m venv venv && source venv/bin/activate   # Windows: venv\Scripts\activate
+python -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
 uvicorn main:app --reload
 ```
 
-1. Open [http://localhost:8000](http://localhost:8000)
-2. Select a doctor (e.g. **Dr. Anna Müller · cardiology**)
-3. Click **Get Recommendations**
-4. Try the **α slider** or click an article for details
+→ [http://localhost:8000](http://localhost:8000)
 
 ---
 
 ## API
 
-### Endpoints
-
-| Method | Path | Description |
+| Method | Endpoint | Description |
 |---|---|---|
 | `GET` | `/` | Web UI |
-| `GET` | `/api/doctors` | All doctors |
+| `GET` | `/api/recommend/{id}` | Recommendations (`n≤4`, `alpha`, `hour`) |
+| `GET` | `/api/doctors` | List doctors |
 | `GET` | `/api/doctors/{id}` | Profile + reading history |
-| `GET` | `/api/recommend/{id}` | Personalised recs (max `n=4`) |
 | `GET` | `/api/articles` | All articles |
 | `GET` | `/api/articles/{id}/similar` | Similar articles |
 | `GET` | `/api/health` | Health check |
-| `GET` | `/docs` | Swagger UI |
+| `GET` | `/docs` | Interactive Swagger |
 
-### Parameters — `GET /api/recommend/{id}`
-
-| Param | Default | Description |
-|---|---|---|
-| `n` | `4` | Number of results (max 4) |
-| `alpha` | `0.5` | Content weight (0 = collab only, 1 = content only) |
-| `hour` | auto | Hour 0–23 for context re-ranking |
-
-### Example
+**Example**
 
 ```bash
 curl "https://med-x-plum.vercel.app/api/recommend/d1?n=4&alpha=0.5&hour=12"
@@ -146,7 +138,6 @@ curl "https://med-x-plum.vercel.app/api/recommend/d1?n=4&alpha=0.5&hour=12"
 
 ```json
 {
-  "doctor": { "name": "Dr. Anna Müller", "specialty": "cardiology" },
   "context": { "label": "Lunch Break", "hour": 12, "max_reading_min": 5 },
   "recommendations": [
     {
@@ -161,39 +152,35 @@ curl "https://med-x-plum.vercel.app/api/recommend/d1?n=4&alpha=0.5&hour=12"
 
 ---
 
-## Dataset
-
-Synthetic data for demo and development:
-
-| | |
-|---|---|
-| Doctors | 15 across 8 specialties |
-| Articles | 40 (guidelines, reviews, education, quick reads) |
-| Lunch-friendly | 14 articles (≤5 min, complexity ≤ 0.35) |
-| Ratings | 94 interactions (1–5 stars) |
-
-Every article includes `complexity_score` and `reading_time_minutes`.
-
----
-
-## Project layout
+## Project structure
 
 ```
 MedX/
-├── main.py                 # FastAPI + embedded frontend
+├── main.py                 # FastAPI routes + embedded UI
 ├── recommender/engine.py   # Hybrid model + context re-ranker
 ├── data/seed_data.py       # Doctors, articles, interactions
 ├── vercel.json
 └── requirements.txt
 ```
 
-**Stack:** FastAPI · scikit-learn · NumPy · Pandas · Vercel
+---
+
+## Dataset
+
+Synthetic demo data — each article has `complexity_score` (0–1) and `reading_time_minutes`.
+
+| Entity | Count |
+|---|---:|
+| Doctors (8 specialties) | 15 |
+| Articles | 40 |
+| Lunch-friendly quick reads | 14 |
+| Ratings | 94 |
 
 ---
 
 ## Deploy
 
-Import [github.com/wasimahmadpk/MedX](https://github.com/wasimahmadpk/MedX) at [vercel.com/new](https://vercel.com/new) — no extra config needed.
+Connect the repo at **[vercel.com/new](https://vercel.com/new)** — `vercel.json` included.
 
 ```bash
 npm i -g vercel && vercel --prod
@@ -203,9 +190,9 @@ npm i -g vercel && vercel --prod
 
 ## Author
 
-**Wasim Ahmad**
+**Wasim Ahmad** — ML Engineer · Data Scientist
 
-[Live demo](https://med-x-plum.vercel.app) · [GitHub](https://github.com/wasimahmadpk) · [Portfolio](https://wasimahmadpk.github.io/portfolio/) · [LinkedIn](https://www.linkedin.com/in/wasim-ahmad-73293767)
+[Demo](https://med-x-plum.vercel.app) · [GitHub](https://github.com/wasimahmadpk) · [Portfolio](https://wasimahmadpk.github.io/portfolio/) · [LinkedIn](https://www.linkedin.com/in/wasim-ahmad-73293767)
 
 ---
 
