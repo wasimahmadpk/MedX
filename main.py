@@ -61,7 +61,7 @@ _HTML = """<!DOCTYPE html>
     .tab-btn { padding: .55rem 1.1rem; border: none; background: none; font-size: .85rem; font-weight: 500; color: var(--gray-600); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all .2s; }
     .tab-btn.active { color: var(--blue); border-bottom-color: var(--blue); font-weight: 700; }
     .tab-btn:hover:not(.active) { color: var(--gray-800); }
-    .main { display: flex; flex-direction: column; gap: 1.5rem; }
+    .main { display: flex; flex-direction: column; gap: 1.5rem; min-width: 0; }
     .empty-state { text-align: center; padding: 4rem 2rem; color: var(--gray-400); }
     .empty-state .icon { font-size: 3rem; margin-bottom: 1rem; }
     .empty-state h3 { font-size: 1.1rem; color: var(--gray-600); margin-bottom: .5rem; }
@@ -104,16 +104,16 @@ _HTML = """<!DOCTYPE html>
     .complexity-fill { height:100%; border-radius:4px; background: var(--blue-mid); }
     .ctx-badge { font-size:.62rem; background:var(--blue-light); color:var(--blue); padding:2px 6px; border-radius:20px; font-weight:600; }
     /* Recommendation carousel */
-    .rec-carousel { margin-top: .25rem; }
-    .rec-viewport-wrap { display: flex; align-items: center; gap: .6rem; }
-    .rec-viewport { flex: 1; overflow: hidden; border-radius: var(--radius); }
-    .rec-track { display: flex; transition: transform 0.4s cubic-bezier(.4,0,.2,1); will-change: transform; }
-    .rec-slide { min-width: 100%; flex-shrink: 0; box-sizing: border-box; }
-    .rec-slide .article-card { min-height: 240px; padding: 1.25rem 1.35rem; border-left-width: 5px; }
-    .carousel-btn { width: 38px; height: 38px; border-radius: 50%; border: 1.5px solid var(--gray-200); background: white; color: var(--blue); font-size: 1.35rem; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all .15s; flex-shrink: 0; box-shadow: var(--shadow); }
+    .rec-carousel { margin-top: .25rem; width: 100%; max-width: 100%; }
+    .rec-viewport { width: 100%; max-width: 100%; overflow: hidden; border-radius: var(--radius); }
+    .rec-track { display: flex; width: 100%; transition: transform 0.4s cubic-bezier(.4,0,.2,1); will-change: transform; }
+    .rec-slide { flex: 0 0 100%; width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; }
+    .rec-slide .article-card { width: 100%; max-width: 100%; min-height: 220px; padding: 1.1rem 1.2rem; border-left-width: 5px; box-sizing: border-box; }
+    .carousel-nav { display: flex; align-items: center; justify-content: center; gap: .75rem; margin-top: .85rem; }
+    .carousel-btn { width: 36px; height: 36px; border-radius: 50%; border: 1.5px solid var(--gray-200); background: white; color: var(--blue); font-size: 1.25rem; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all .15s; flex-shrink: 0; box-shadow: var(--shadow); }
     .carousel-btn:hover:not(:disabled) { background: var(--blue); color: white; border-color: var(--blue); }
     .carousel-btn:disabled { opacity: .3; cursor: not-allowed; box-shadow: none; }
-    .carousel-footer { display: flex; flex-direction: column; align-items: center; gap: .45rem; margin-top: .85rem; }
+    .carousel-footer { display: flex; flex-direction: column; align-items: center; gap: .45rem; margin-top: .5rem; }
     .carousel-dots { display: flex; gap: .45rem; justify-content: center; }
     .carousel-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--gray-200); border: none; cursor: pointer; padding: 0; transition: all .25s; }
     .carousel-dot.active { background: var(--blue); width: 24px; border-radius: 4px; }
@@ -205,15 +205,15 @@ _HTML = """<!DOCTYPE html>
         <div id="recPanel" style="display:none;">
           <div class="section-title" id="recSubtitle"></div>
           <div class="rec-carousel" id="recCarousel">
-            <div class="rec-viewport-wrap">
+            <div class="rec-viewport">
+              <div class="rec-track" id="recTrack"></div>
+            </div>
+            <div class="carousel-nav">
               <button type="button" class="carousel-btn" id="recPrev" onclick="recPrev()" aria-label="Previous">‹</button>
-              <div class="rec-viewport">
-                <div class="rec-track" id="recTrack"></div>
-              </div>
+              <div class="carousel-dots" id="recDots"></div>
               <button type="button" class="carousel-btn" id="recNext" onclick="recNext()" aria-label="Next">›</button>
             </div>
             <div class="carousel-footer">
-              <div class="carousel-dots" id="recDots"></div>
               <div class="carousel-counter" id="recCounter"></div>
             </div>
           </div>
@@ -342,9 +342,23 @@ function goToRecSlide(i) {
 function recPrev() { goToRecSlide(recIndex - 1); }
 function recNext() { goToRecSlide(recIndex + 1); }
 
+function syncRecSlideWidths() {
+  const viewport = document.querySelector('.rec-viewport');
+  if (!viewport) return 0;
+  const w = viewport.clientWidth;
+  document.querySelectorAll('.rec-slide').forEach(slide => {
+    slide.style.flexBasis = `${w}px`;
+    slide.style.width = `${w}px`;
+  });
+  return w;
+}
+
 function updateRecCarousel() {
   const track = document.getElementById('recTrack');
-  track.style.transform = `translateX(-${recIndex * 100}%)`;
+  const slideWidth = syncRecSlideWidths();
+  track.style.transform = slideWidth
+    ? `translateX(-${recIndex * slideWidth}px)`
+    : `translateX(-${recIndex * 100}%)`;
   document.querySelectorAll('.carousel-dot').forEach((d, i) => {
     d.classList.toggle('active', i === recIndex);
   });
@@ -353,6 +367,10 @@ function updateRecCarousel() {
   document.getElementById('recPrev').disabled = recIndex === 0;
   document.getElementById('recNext').disabled = recIndex >= recSlides.length - 1;
 }
+
+window.addEventListener('resize', () => {
+  if (recSlides.length) updateRecCarousel();
+});
 
 function switchTab(tab) {
   currentTab = tab;
