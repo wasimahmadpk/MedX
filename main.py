@@ -103,6 +103,21 @@ _HTML = """<!DOCTYPE html>
     .complexity-bar { width:40px; height:4px; background:var(--gray-200); border-radius:4px; overflow:hidden; display:inline-block; vertical-align:middle; margin-left:3px; }
     .complexity-fill { height:100%; border-radius:4px; background: var(--blue-mid); }
     .ctx-badge { font-size:.62rem; background:var(--blue-light); color:var(--blue); padding:2px 6px; border-radius:20px; font-weight:600; }
+    /* Recommendation carousel */
+    .rec-carousel { margin-top: .25rem; }
+    .rec-viewport-wrap { display: flex; align-items: center; gap: .6rem; }
+    .rec-viewport { flex: 1; overflow: hidden; border-radius: var(--radius); }
+    .rec-track { display: flex; transition: transform 0.4s cubic-bezier(.4,0,.2,1); will-change: transform; }
+    .rec-slide { min-width: 100%; flex-shrink: 0; box-sizing: border-box; }
+    .rec-slide .article-card { min-height: 240px; padding: 1.25rem 1.35rem; border-left-width: 5px; }
+    .carousel-btn { width: 38px; height: 38px; border-radius: 50%; border: 1.5px solid var(--gray-200); background: white; color: var(--blue); font-size: 1.35rem; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all .15s; flex-shrink: 0; box-shadow: var(--shadow); }
+    .carousel-btn:hover:not(:disabled) { background: var(--blue); color: white; border-color: var(--blue); }
+    .carousel-btn:disabled { opacity: .3; cursor: not-allowed; box-shadow: none; }
+    .carousel-footer { display: flex; flex-direction: column; align-items: center; gap: .45rem; margin-top: .85rem; }
+    .carousel-dots { display: flex; gap: .45rem; justify-content: center; }
+    .carousel-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--gray-200); border: none; cursor: pointer; padding: 0; transition: all .25s; }
+    .carousel-dot.active { background: var(--blue); width: 24px; border-radius: 4px; }
+    .carousel-counter { font-size: .72rem; color: var(--gray-400); font-weight: 500; letter-spacing: .3px; }
     /* Modal */
     .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:200; align-items:center; justify-content:center; padding:1rem; }
     .modal-overlay.open { display:flex; }
@@ -189,7 +204,19 @@ _HTML = """<!DOCTYPE html>
         </div>
         <div id="recPanel" style="display:none;">
           <div class="section-title" id="recSubtitle"></div>
-          <div class="article-grid" id="recGrid"></div>
+          <div class="rec-carousel" id="recCarousel">
+            <div class="rec-viewport-wrap">
+              <button type="button" class="carousel-btn" id="recPrev" onclick="recPrev()" aria-label="Previous">‹</button>
+              <div class="rec-viewport">
+                <div class="rec-track" id="recTrack"></div>
+              </div>
+              <button type="button" class="carousel-btn" id="recNext" onclick="recNext()" aria-label="Next">›</button>
+            </div>
+            <div class="carousel-footer">
+              <div class="carousel-dots" id="recDots"></div>
+              <div class="carousel-counter" id="recCounter"></div>
+            </div>
+          </div>
         </div>
         <div id="allPanel" style="display:none;">
           <div class="article-grid" id="allGrid"></div>
@@ -278,9 +305,53 @@ async function fetchRecommendations() {
     banner.innerHTML = `<span style="font-size:1.1rem">${c.icon}</span> <span><strong>${c.label}</strong> — showing articles that fit your reading time right now (≤${c.max_reading_min} min, complexity match)</span>`;
   }
 
-  const grid = document.getElementById('recGrid');
-  grid.innerHTML = '';
-  data.recommendations.forEach(art => grid.appendChild(buildArticleCard(art, true)));
+  renderRecCarousel(data.recommendations);
+}
+
+let recSlides = [];
+let recIndex = 0;
+
+function renderRecCarousel(recommendations) {
+  recSlides = recommendations.slice(0, 4);
+  recIndex = 0;
+  const track = document.getElementById('recTrack');
+  const dots = document.getElementById('recDots');
+  track.innerHTML = '';
+  dots.innerHTML = '';
+  recSlides.forEach((art, i) => {
+    const slide = document.createElement('div');
+    slide.className = 'rec-slide';
+    slide.appendChild(buildArticleCard(art, true));
+    track.appendChild(slide);
+    const dot = document.createElement('button');
+    dot.type = 'button';
+    dot.className = 'carousel-dot' + (i === 0 ? ' active' : '');
+    dot.setAttribute('aria-label', `Slide ${i + 1}`);
+    dot.onclick = () => goToRecSlide(i);
+    dots.appendChild(dot);
+  });
+  updateRecCarousel();
+}
+
+function goToRecSlide(i) {
+  if (!recSlides.length) return;
+  recIndex = Math.max(0, Math.min(i, recSlides.length - 1));
+  updateRecCarousel();
+}
+
+function recPrev() { goToRecSlide(recIndex - 1); }
+function recNext() { goToRecSlide(recIndex + 1); }
+
+function updateRecCarousel() {
+  const track = document.getElementById('recTrack');
+  track.style.transform = `translateX(-${recIndex * 100}%)`;
+  document.querySelectorAll('.carousel-dot').forEach((d, i) => {
+    d.classList.toggle('active', i === recIndex);
+  });
+  const counter = document.getElementById('recCounter');
+  counter.textContent = recSlides.length ? `${recIndex + 1} of ${recSlides.length}` : '';
+  document.getElementById('recPrev').disabled = recIndex === 0;
+  document.getElementById('recNext').disabled = recIndex >= recSlides.length - 1;
 }
 
 function switchTab(tab) {
@@ -292,7 +363,7 @@ function switchTab(tab) {
   });
   document.getElementById(`tab${tab.charAt(0).toUpperCase()+tab.slice(1)}`).classList.add('active');
   if (tab === 'rec') {
-    const hasRecs = document.getElementById('recGrid').children.length > 0;
+    const hasRecs = document.getElementById('recTrack').children.length > 0;
     document.getElementById('recPanel').style.display = hasRecs ? 'block' : 'none';
     document.getElementById('emptyState').style.display = hasRecs ? 'none' : 'block';
   } else if (tab === 'all') {
