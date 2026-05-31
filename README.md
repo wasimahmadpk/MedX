@@ -9,7 +9,7 @@
 
 **[Live app](https://med-x-plum.vercel.app)** · **[API docs](https://med-x-plum.vercel.app/docs)** · **[GitHub](https://github.com/wasimahmadpk/MedX)**
 
-MedX is a full-stack hybrid recommender for medical content. It personalises articles using **specialty & tags**, **doctor reading patterns**, and **time of day** — returning up to **4** recommendations via a web UI and REST API.
+MedX is a full-stack hybrid recommender for medical content. It personalises articles using **specialty & tags**, **doctor reading patterns**, and **time of day** — returning up to **5** recommendations via a web UI and REST API.
 
 ---
 
@@ -81,7 +81,7 @@ flowchart LR
   T[Hour of day] --> X[Context boost]
   H --> F[Final rank]
   X --> F
-  F --> R[Top 4 articles]
+  F --> R[Top 5 articles]
 ```
 
 ```
@@ -133,16 +133,16 @@ Open [http://localhost:8000](http://localhost:8000) · Requires **Python 3.11+**
 
 | Param | Default | Description |
 |---|---|---|
-| `n` | `4` | Max 4 results |
+| `n` | `5` | Max 5 results |
 | `alpha` | `0.5` | Content weight (0 = collab, 1 = content) |
 | `hour` | auto | 0–23 for context ranking |
 
 ```bash
 # Cardiologist, lunch break, equal blend
-curl "https://med-x-plum.vercel.app/api/recommend/d1?n=4&alpha=0.5&hour=12"
+curl "https://med-x-plum.vercel.app/api/recommend/d1?n=5&alpha=0.5&hour=12"
 
 # Same doctor, evening — compare results
-curl "https://med-x-plum.vercel.app/api/recommend/d1?n=4&alpha=0.5&hour=20"
+curl "https://med-x-plum.vercel.app/api/recommend/d1?n=5&alpha=0.5&hour=20"
 ```
 
 <details>
@@ -187,7 +187,7 @@ Each article has `complexity_score` (0–1) and `reading_time_minutes`.
 **What does the α slider do?**  
 `α = 1` → pure content-based (specialty & tags). `α = 0` → pure collaborative (reading patterns). Default `0.5` blends both.
 
-**Why only 4 recommendations?**  
+**Why only 5 recommendations?**  
 Keeps output focused — mimics a curated feed rather than an overwhelming list.
 
 **Is the data real?**  
