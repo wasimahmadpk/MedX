@@ -9,9 +9,19 @@
 
 **[Live app](https://med-x-plum.vercel.app)** · **[API docs](https://med-x-plum.vercel.app/docs)** · **[GitHub](https://github.com/wasimahmadpk/MedX)**
 
-MedX is a deployable hybrid recommender prototype for medical content. It personalises articles using **specialty & tags**, **doctor reading patterns**, and **time of day** — returning up to **5** focused recommendations via a slide carousel UI and REST API.
+Hybrid medical content recommender — **content + collaborative filtering + time-of-day context** — with a carousel web UI and REST API. Deployed on Vercel as a portfolio PoC.
 
-Built as a portfolio PoC inspired by doctor-platform recommender systems (e.g. coliquio-style medical feeds).
+---
+
+## At a glance
+
+| | |
+|---|---|
+| **Problem** | Surface the right article for a doctor's specialty, peers, and available time |
+| **Output** | Up to **5** ranked recommendations per doctor |
+| **UI** | Slide carousel (one card per slide), article modal, α slider, reading history |
+| **Stack** | FastAPI · scikit-learn · NumPy SVD · pandas · embedded HTML/CSS/JS |
+| **Data** | 15 doctors · 40 articles · 94 ratings (synthetic) |
 
 ---
 
@@ -21,6 +31,7 @@ Built as a portfolio PoC inspired by doctor-platform recommender systems (e.g. c
 - [Why MedX](#why-medx)
 - [Live demo](#live-demo)
 - [How it works](#how-it-works)
+- [Tech stack](#tech-stack)
 - [Quick start](#quick-start)
 - [API](#api)
 - [Dataset](#dataset)
@@ -35,13 +46,13 @@ Built as a portfolio PoC inspired by doctor-platform recommender systems (e.g. c
 
 | Area | What you get |
 |---|---|
-| **Hybrid engine** | TF-IDF content scores + NumPy SVD collaborative filtering, blended with α |
+| **Hybrid engine** | TF-IDF content scores + mean-centred NumPy SVD, blended with α |
 | **Context-aware** | Re-ranks by hour — quick lunch reads at noon, deeper articles in the evening |
-| **Carousel UI** | One recommendation per slide, with prev/next arrows, dot indicators, and counter |
-| **Article modal** | Click any card for summary, stats, and similar articles |
-| **Algorithm controls** | Live α slider to compare content-based vs collaborative weighting |
-| **REST API** | Same logic exposed via FastAPI — Swagger docs at `/docs` |
-| **Serverless-ready** | Single-file deploy on Vercel (no scikit-surprise; pure NumPy SVD) |
+| **Carousel UI** | Full-width slides with prev/next arrows, dot indicators, and position counter |
+| **Article modal** | Summary, complexity, read time, and similar articles on click |
+| **Algorithm controls** | Live α slider — compare content-based vs collaborative weighting |
+| **REST API** | Same logic as the UI; interactive Swagger at `/docs` |
+| **Serverless-ready** | Frontend embedded in `main.py`; no scikit-surprise or static file bundling issues |
 
 ---
 
@@ -73,22 +84,27 @@ Doctors are overloaded with literature. A useful recommender must solve three pr
 |---|---|
 | 1 | Select a doctor from the sidebar |
 | 2 | Click **Get Recommendations** |
-| 3 | Browse the **carousel** — use arrows or dots to move between up to 5 slides |
+| 3 | Browse the **carousel** — arrows and dots move between up to 5 slides |
 | 4 | Move the **α slider** to shift content-based ↔ collaborative weighting |
-| 5 | Note the **context banner** (e.g. Lunch Break, Evening) — ranking adapts to your local hour |
-| 6 | Click an article for the detail modal and similar items |
-| 7 | Switch to **All Articles** or **Reading History** tabs to explore the dataset |
+| 5 | Read the **context banner** (e.g. Lunch Break) — ranking uses your browser's local hour |
+| 6 | Click a slide for the detail modal and similar articles |
+| 7 | Open **All Articles** or **Reading History** to explore the dataset |
 
-**Try these doctors**
+**Sample doctors**
 
-| ID | Doctor | Specialty |
-|---|---|---|
-| `d1` | Dr. Anna Müller | Cardiology |
-| `d2` | Dr. Ben Schäfer | Neurology |
-| `d8` | Dr. Hans Weber | General practice |
-| `d10` | Dr. Jonas Schulz | Psychiatry |
+| ID | Doctor | Specialty | Good for |
+|---|---|---|---|
+| `d1` | Dr. Anna Müller | Cardiology | Cardiology-heavy feed |
+| `d2` | Dr. Ben Schäfer | Neurology | Neurology + cross-specialty picks |
+| `d8` | Dr. Hans Weber | General practice | Broad primary-care content |
+| `d10` | Dr. Jonas Schulz | Psychiatry | Mental-health articles |
 
-**Tip:** Call the same doctor at `hour=12` vs `hour=20` via the API to see context re-ranking change the order.
+**Compare context ranking** — same doctor, different hours:
+
+```bash
+curl -s "https://med-x-plum.vercel.app/api/recommend/d1?n=5&hour=12" | jq '.recommendations[].title'
+curl -s "https://med-x-plum.vercel.app/api/recommend/d1?n=5&hour=20" | jq '.recommendations[].title'
+```
 
 ---
 
@@ -103,7 +119,7 @@ flowchart LR
   T[Hour of day] --> X[Context boost]
   H --> F[Final rank]
   X --> F
-  F --> R[Top 5 carousel slides]
+  F --> R[Top 5 slides]
 ```
 
 ```
@@ -114,19 +130,35 @@ final   = hybrid × context_boost(complexity, read_time, hour)
 | Layer | Tech | Purpose |
 |---|---|---|
 | Content-based | scikit-learn | Match tags, specialty, reading history |
-| Collaborative | NumPy SVD | Predict from doctor–article ratings |
-| Hybrid blend | α parameter | Balance both signals |
-| Context re-rank | Time slots | Boost lunch reads at noon, deep reads at night |
+| Collaborative | NumPy SVD (15 factors) | Predict from doctor–article ratings |
+| Hybrid blend | α ∈ [0, 1] | Balance both signals |
+| Context re-rank | Rule-based time slots | Boost articles that fit complexity & length |
 
-**Time slots**
+**Time slots** (from `recommender/engine.py`)
 
-| Slot | Hours | Preference |
+| Slot | Hours | Ideal complexity | Max read (min) |
+|---|---|---:|---:|
+| Early Morning | 5–9 | 0.8 | 20 |
+| Morning Work | 9–12 | 0.6 | 10 |
+| **Lunch Break** | 12–14 | 0.3 | 5 |
+| Afternoon Work | 14–18 | 0.55 | 9 |
+| Evening | 18–22 | 0.8 | 20 |
+| Late Night | 22–24 | 0.4 | 6 |
+| Night | 0–5 | 0.4 | 6 |
+
+**Specialties:** cardiology · neurology · oncology · pediatrics · dermatology · general practice · psychiatry · radiology
+
+---
+
+## Tech stack
+
+| Layer | Choice | Notes |
 |---|---|---|
-| Early morning / Evening | 6–9, 17–21 | Longer, more complex reads |
-| **Lunch break** | 12–14 | ≤5 min, low complexity |
-| Night | 22–5 | Short, easy reads |
-
-**Specialties covered:** cardiology · neurology · oncology · pediatrics · dermatology · general practice · psychiatry · radiology
+| API | FastAPI + Uvicorn | Lazy-loaded recommender singleton |
+| ML | scikit-learn, NumPy | TF-IDF + cosine sim; pure NumPy SVD (no surprise) |
+| Data | pandas | In-memory seed data |
+| UI | Embedded HTML/CSS/JS | Single `_HTML` string in `main.py` for Vercel |
+| Hosting | Vercel Python runtime | `vercel.json` routes all paths to `main.py` |
 
 ---
 
@@ -142,35 +174,39 @@ uvicorn main:app --reload
 
 Open [http://localhost:8000](http://localhost:8000) · Requires **Python 3.11+**
 
+```bash
+# Smoke test
+curl http://localhost:8000/api/health
+curl "http://localhost:8000/api/recommend/d1?n=5&alpha=0.5&hour=12"
+```
+
 ---
 
 ## API
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `GET` | `/` | Web UI (embedded carousel frontend) |
+| `GET` | `/` | Web UI |
 | `GET` | `/api/recommend/{id}` | Personalised recommendations |
 | `GET` | `/api/doctors` | All doctors |
 | `GET` | `/api/doctors/{id}` | Profile + reading history |
 | `GET` | `/api/articles` | All articles |
-| `GET` | `/api/articles/{id}/similar` | Similar articles |
+| `GET` | `/api/articles/{id}` | Single article |
+| `GET` | `/api/articles/{id}/similar` | Similar articles (TF-IDF) |
 | `GET` | `/api/health` | Health check |
 | `GET` | `/docs` | Swagger UI |
 
-**Parameters** — `GET /api/recommend/{id}`
+**`GET /api/recommend/{id}`**
 
 | Param | Default | Description |
 |---|---|---|
 | `n` | `5` | Max 5 results |
 | `alpha` | `0.5` | Content weight (0 = collab, 1 = content) |
-| `hour` | auto | 0–23 for context ranking |
+| `hour` | server UTC | 0–23 for context ranking; UI sends browser local hour |
 | `exclude_read` | `true` | Skip articles the doctor already rated |
 
 ```bash
-# Cardiologist, lunch break, equal blend
 curl "https://med-x-plum.vercel.app/api/recommend/d1?n=5&alpha=0.5&hour=12"
-
-# Same doctor, evening — compare results
 curl "https://med-x-plum.vercel.app/api/recommend/d1?n=5&alpha=0.5&hour=20"
 ```
 
@@ -180,7 +216,13 @@ curl "https://med-x-plum.vercel.app/api/recommend/d1?n=5&alpha=0.5&hour=20"
 ```json
 {
   "doctor": { "name": "Dr. Anna Müller", "specialty": "cardiology" },
-  "context": { "label": "Lunch Break", "hour": 12, "max_reading_min": 5 },
+  "context": {
+    "hour": 12,
+    "label": "Lunch Break",
+    "icon": "🍽️",
+    "ideal_complexity": 0.3,
+    "max_reading_min": 5
+  },
   "recommendations": [
     {
       "title": "Vitamin D Deficiency in Primary Care: Test or Treat?",
@@ -204,32 +246,32 @@ Synthetic demo data in `data/seed_data.py`:
 |---|---:|
 | Doctors | 15 |
 | Articles | 40 |
-| Lunch-friendly quick reads | 14 |
+| Lunch-friendly quick reads (≤5 min) | 14 |
 | Ratings (1–5) | 94 |
 
-Each article includes `complexity_score` (0–1), `reading_time_minutes`, tags, specialty, and type (guideline, case study, review, etc.).
+Each article has `complexity_score` (0–1), `reading_time_minutes`, tags, specialty, and type (guideline, case study, review, etc.).
 
 ---
 
 ## FAQ
 
 **What does the α slider do?**  
-`α = 1` → pure content-based (specialty & tags). `α = 0` → pure collaborative (reading patterns). Default `0.5` blends both.
+`α = 1` → pure content-based. `α = 0` → pure collaborative. Default `0.5` blends both.
 
 **Why only 5 recommendations?**  
-Keeps output focused — mimics a curated feed rather than an overwhelming list. The UI presents them one at a time in a carousel.
+Focused curated feed — the UI shows one slide at a time instead of a long list.
 
 **How does the carousel work?**  
-Each recommendation is a full-width slide. Navigate with prev/next buttons or dot indicators; a counter shows your position (e.g. 2 of 5).
+Each recommendation is a full-width card inside the main panel. Navigation sits below the card (arrows + dots + “2 of 5” counter).
 
 **Is the data real?**  
-No — synthetic data for demonstration. The algorithms are production-style; the dataset is not.
+No — synthetic for demonstration. Algorithms are production-style; the dataset is not.
 
 **Does context use machine learning?**  
-The context layer is rule-based (time slot → ideal complexity & length). A production system would learn these patterns from engagement data.
+Rule-based for now (time slot → ideal complexity & length). Production systems would learn from engagement data.
 
 **Why NumPy SVD instead of scikit-surprise?**  
-Pure NumPy keeps the Vercel serverless bundle small and avoids native dependency issues. Same matrix-factorisation idea, lighter deploy.
+Smaller serverless bundle, no native deps, same matrix-factorisation idea — better fit for Vercel.
 
 ---
 
@@ -237,24 +279,33 @@ Pure NumPy keeps the Vercel serverless bundle small and avoids native dependency
 
 ```
 MedX/
-├── main.py                 # FastAPI API + embedded HTML/CSS/JS UI
-├── recommender/engine.py   # Hybrid engine, SVD collab, context re-ranker
+├── main.py                 # FastAPI + embedded carousel UI
+├── recommender/engine.py   # Hybrid engine, SVD, context re-ranker
 ├── data/seed_data.py       # Doctors, articles, interactions
-├── vercel.json             # Routes all traffic to main.py
-└── requirements.txt        # fastapi, uvicorn, pandas, numpy, scikit-learn
+├── vercel.json             # Vercel Python build + catch-all route
+└── requirements.txt
 ```
 
 ---
 
 ## Deploy
 
-Import at [vercel.com/new](https://vercel.com/new) — `vercel.json` included, no extra config. The frontend is embedded in `main.py` (Vercel only bundles `.py` files).
+1. Fork or clone the repo  
+2. Import at [vercel.com/new](https://vercel.com/new)  
+3. Deploy — `vercel.json` is included; no env vars required  
 
 ```bash
 npm i -g vercel && vercel --prod
 ```
 
-Verify: `curl https://med-x-plum.vercel.app/api/health`
+Verify:
+
+```bash
+curl https://med-x-plum.vercel.app/api/health
+# {"status":"ok","model":"hybrid (TF-IDF + numpy SVD)","version":"0.1.0"}
+```
+
+> **Note:** Static files in `public/` are not used on Vercel — the UI lives inside `main.py` because Vercel's Python builder only bundles `.py` files.
 
 ---
 
