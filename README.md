@@ -29,6 +29,9 @@ Hybrid medical content recommender — **content + collaborative filtering + tim
 
 - [Features](#features)
 - [Why MedX](#why-medx)
+- [MedX vs full HCP platforms](#medx-vs-full-hcp-platforms-eg-coliquio)
+- [Interview & portfolio](#interview--portfolio)
+- [Algorithms](#algorithms-implemented)
 - [Live demo](#live-demo)
 - [How it works](#how-it-works)
 - [Tech stack](#tech-stack)
@@ -73,6 +76,84 @@ Doctors are overloaded with literature. A useful recommender must solve three pr
 | Content-based only | Works for new users | Misses behavioural patterns |
 | Collaborative only | Finds hidden patterns | Cold-start problem |
 | **MedX hybrid + context** | Specialty + behaviour + timing | Prototype-scale data |
+
+---
+
+## MedX vs full HCP platforms (e.g. coliquio)
+
+[coliquio](https://www.coliquio.de) is a DACH **doctor-only** network: verified identity, peer forums on patient cases, CME, medical news, guideline updates, and pharma **Infocenters** (HWG-compliant, separate from doctor-to-doctor discussion). It positions itself as a **personal information assistant** — relevant knowledge plus collegial exchange for licensed physicians and psychotherapists.
+
+**MedX does not replicate that product.** It isolates one hard slice: **ranking which articles to show whom, and when** — as a deployable ML PoC you can demo, test via API, and discuss in interviews.
+
+| Capability | Full platform (coliquio-style) | MedX prototype |
+|---|---|---|
+| **Verified HCP identity** | Approbation, login, compliance | ❌ Dropdown picks a synthetic doctor |
+| **Peer forum / cases** | Patient cases, diagnoses, therapy threads | ❌ |
+| **CME & events** | Credits, live/on-demand training | ❌ |
+| **Pharma / Infocenters** | Sponsored product & study info (regulated) | ❌ |
+| **Editorial & news pipeline** | Daily medical news, guideline alerts | ❌ Static 40 articles in seed data |
+| **Personalised article feed** | Core product goal | ✅ Hybrid CF + content + time re-rank |
+| **Explainable blend** | Often opaque in production | ✅ α slider (content ↔ collaborative) |
+| **Time-of-day fit** | Likely learned from engagement at scale | ✅ Rule-based (length & complexity vs hour) |
+| **Similar articles** | Related content widgets | ✅ TF-IDF cosine on tags/specialty/type |
+| **REST API / MLOps path** | Internal services | ✅ FastAPI + `/docs`, Vercel deploy |
+
+### What MedX deliberately simplifies
+
+- **No timestamps on reads** — collaborative filtering uses ratings only, not “read at 20:00”. Time rules use the clock + article metadata, not temporal CF.
+- **No real text mining** — `title` / `summary` are not in the TF-IDF model; only `tags`, `specialty`, `type`.
+- **Hand-set `complexity_score`** — not computed from full text; stands in for a production readability/difficulty model.
+- **Tiny synthetic graph** — 15 doctors and 94 ratings; patterns are illustrative, not statistically stable.
+
+### What you could add next (production-shaped extensions)
+
+| Extension | Why it matters on an HCP platform |
+|---|---|
+| Timestamped interactions | Enables **temporal collaborative filtering** (“peers like you read this in the evening”) |
+| Session / device context | Mobile vs desktop, ward vs clinic |
+| Forum + article graph | Recommend threads, cases, and papers in one feed |
+| CME goals & credits | Boost content that completes a learning path |
+| Compliance filters | HWG, specialty-only pharma, opt-out of sponsored slots |
+| RAG over full text | Search + recommend from PDFs/guidelines, not just tags |
+| A/B tests & logging | Measure lift on click-through, dwell time, CME completion |
+
+**Interview framing:** *“MedX prototypes the recommender core of an HCP information assistant — hybrid relevance and time-aware re-ranking — while a live platform like coliquio layers community, CME, identity, and regulated pharma content around that engine.”*
+
+---
+
+## Interview & portfolio
+
+MedX is scoped as a **recommender-engine PoC**, not a full HCP platform — enough to discuss hybrid design, trade-offs, and production next steps in ML / DS interviews.
+
+**90-second pitch**
+
+> Doctors see too much content and too little time. MedX ranks medical articles for a given doctor using three signals: specialty and tags (content-based TF-IDF), what similar doctors rated (collaborative SVD), and whether the article fits the current time slot (length and complexity vs lunch vs evening). You can tune the blend live with α and see up to five results in a carousel. It’s deployed on Vercel with a public API — synthetic data, but production-style algorithms.
+
+**Likely questions & honest answers**
+
+| Question | Answer |
+|---|---|
+| Is this temporal collaborative filtering? | **No.** Time is rule-based on article metadata; CF has no timestamps. |
+| How is `complexity_score` computed? | **Hand-set** in seed data for the demo; production would use NLP or behaviour. |
+| How would you evaluate it? | Hold-out ratings → precision/recall@k or NDCG; then online A/B on CTR/dwell. |
+| Cold start? | Content-based + specialty helps new doctors; collab needs ratings history. |
+| Why not LightFM / surprise? | NumPy SVD keeps the Vercel deploy small and dependency-free. |
+
+**Demo in an interview:** [Live app](https://med-x-plum.vercel.app) → pick `d1` → Get Recommendations → move α → run lunch vs evening `curl` commands below.
+
+---
+
+## Algorithms implemented
+
+| Component | Algorithm | Library | Role |
+|---|---|---|---|
+| Content-based | TF-IDF (1–2 grams) + cosine similarity | scikit-learn | Doctor profile vs articles (`tags`, `specialty`, `type`) |
+| Collaborative | Mean-centred matrix factorisation (SVD, **10 factors**) | NumPy | Predict ratings from doctor–article interactions |
+| Hybrid | Weighted sum after min–max normalisation | — | `α·content + (1−α)·collab` |
+| Time context | Rule-based multiplier | — | `context_boost(complexity, read_time, slot)` |
+| Similar items | Cosine similarity on article TF-IDF vectors | scikit-learn | Modal “similar articles” |
+
+**Not implemented:** temporal CF, deep learning, RAG, learning-to-rank, explicit diversity/fairness constraints.
 
 ---
 
@@ -130,7 +211,7 @@ final   = hybrid × context_boost(complexity, read_time, hour)
 | Layer | Tech | Purpose |
 |---|---|---|
 | Content-based | scikit-learn | Match tags, specialty, reading history |
-| Collaborative | NumPy SVD (15 factors) | Predict from doctor–article ratings |
+| Collaborative | NumPy SVD (10 factors) | Predict from doctor–article ratings |
 | Hybrid blend | α ∈ [0, 1] | Balance both signals |
 | Context re-rank | Rule-based time slots | Boost articles that fit complexity & length |
 
@@ -249,7 +330,16 @@ Synthetic demo data in `data/seed_data.py`:
 | Lunch-friendly quick reads (≤5 min) | 14 |
 | Ratings (1–5) | 94 |
 
-Each article has `complexity_score` (0–1), `reading_time_minutes`, tags, specialty, and type (guideline, case study, review, etc.).
+**Per-article fields** (used in UI and/or models):
+
+| Field | In TF-IDF? | In time re-rank? | Notes |
+|---|---|---|---|
+| `id`, `title`, `summary` | — / display only | — | Title/summary not in ML features today |
+| `tags`, `specialty`, `type` | ✅ | — | Content-based corpus |
+| `complexity_score` | — | ✅ | Manual 0–1 label in seed data |
+| `reading_time_minutes` | — | ✅ | Lunch slot prefers ≤5 min |
+
+**Interactions:** `(doctor_id, article_id, rating)` — no read timestamp.
 
 ---
 
@@ -272,6 +362,12 @@ Rule-based for now (time slot → ideal complexity & length). Production systems
 
 **Why NumPy SVD instead of scikit-surprise?**  
 Smaller serverless bundle, no native deps, same matrix-factorisation idea — better fit for Vercel.
+
+**MedX vs WebMD?**  
+[WebMD](https://www.webmd.com) is **patient-facing** consumer health. coliquio (Medscape network) and MedX target **licensed HCPs** — clinical depth, specialty, and practice-time context.
+
+**Is MedX enough for interviews?**  
+Yes, as a **focused recommender demo** if you explain scope, limitations, and production extensions (see [MedX vs full HCP platforms](#medx-vs-full-hcp-platforms-eg-coliquio)).
 
 ---
 
