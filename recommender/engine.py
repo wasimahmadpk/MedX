@@ -17,6 +17,13 @@ from recommender.features import LogStats, build_feature_row
 from recommender.ranker import LightGBMRanker
 from recommender.sklearn_ranker import SklearnRanker
 
+# Ensure Vercel bundles auto-generated ranker modules (dynamic imports are omitted).
+try:
+    from recommender import model_bundle as _model_bundle  # noqa: F401
+    from recommender import sk_model_bundle as _sk_model_bundle  # noqa: F401
+except ImportError:
+    pass
+
 # Re-export for API consumers
 __all__ = ["MedXRecommender", "get_time_slot", "TIME_SLOTS"]
 
