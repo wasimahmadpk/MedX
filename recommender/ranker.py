@@ -25,9 +25,9 @@ def _load_model_string() -> str | None:
     if DEFAULT_MODEL_PATH.is_file():
         return DEFAULT_MODEL_PATH.read_text(encoding="utf-8")
     try:
-        from recommender.model_bundle import MODEL_STR  # auto-generated
+        from recommender import model_bundle  # bundled on Vercel via static import
 
-        return MODEL_STR
+        return model_bundle.MODEL_STR
     except ImportError:
         return None
 

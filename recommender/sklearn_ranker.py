@@ -13,9 +13,9 @@ logger = logging.getLogger(__name__)
 
 def load_sklearn_ranker():
     try:
-        from recommender.sk_model_bundle import MODEL_B64  # auto-generated
+        from recommender import sk_model_bundle  # bundled on Vercel via static import
 
-        return pickle.loads(base64.b64decode(MODEL_B64))
+        return pickle.loads(base64.b64decode(sk_model_bundle.MODEL_B64))
     except Exception as exc:
         logger.warning("Sklearn ranker unavailable (%s).", exc)
         return None
