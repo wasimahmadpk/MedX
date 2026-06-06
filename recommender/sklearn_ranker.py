@@ -23,7 +23,15 @@ def load_sklearn_ranker():
 
 class SklearnRanker:
     def __init__(self):
-        self.model = load_sklearn_ranker()
+        self.model = None
+        self.load_error: str | None = None
+        try:
+            from recommender import sk_model_bundle  # bundled on Vercel
+
+            self.model = pickle.loads(base64.b64decode(sk_model_bundle.MODEL_B64))
+        except Exception as exc:
+            self.load_error = str(exc)
+            logger.warning("Sklearn ranker unavailable (%s).", exc)
 
     @property
     def is_loaded(self) -> bool:

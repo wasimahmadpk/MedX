@@ -636,11 +636,17 @@ async def health():
         ranker_backend = "sklearn"
     else:
         ranker_backend = "hybrid"
+    ranker_detail = {}
+    if not rec.ranker.is_loaded:
+        ranker_detail["lightgbm"] = "not installed on Vercel"
+    if not rec.sk_ranker.is_loaded and rec.sk_ranker.load_error:
+        ranker_detail["sklearn_error"] = rec.sk_ranker.load_error
     return {
         "status": "ok",
         "model": "hybrid (TF-IDF + numpy SVD) + learned ranker",
         "ranker_backend": ranker_backend,
         "ranker_loaded": rec.ranker_loaded,
+        "ranker_detail": ranker_detail or None,
         "event_logs": len(rec.event_logs_df),
         "version": "0.2.1",
     }
