@@ -304,3 +304,71 @@ INTERACTIONS = [
     ("d3",  "a39", 4), ("d7",  "a39", 5), ("d10", "a40", 5), ("d8",  "a40", 4),
     ("d14", "a33", 4), ("d1",  "a34", 4),
 ]
+
+
+def _build_event_logs() -> list[dict]:
+    """
+    Synthetic engagement logs for ranking features and LightGBM training.
+    event_type: impression | click | read_complete
+    """
+    art_by_id = {a["id"]: a for a in ARTICLES}
+    lunch_ids = {f"a{i}" for i in range(33, 41)}
+
+    logs: list[dict] = []
+    log_id = 1
+
+    def add(doctor_id, article_id, event_type, hour, day_of_week, dwell_seconds):
+        nonlocal log_id
+        logs.append({
+            "id": f"ev{log_id}",
+            "doctor_id": doctor_id,
+            "article_id": article_id,
+            "event_type": event_type,
+            "hour": hour,
+            "day_of_week": day_of_week,
+            "dwell_seconds": dwell_seconds,
+        })
+        log_id += 1
+
+    for doctor_id, article_id, rating in INTERACTIONS:
+        art = art_by_id[article_id]
+        if article_id in lunch_ids:
+            hour, dwell = 12, min(art["reading_time_minutes"] * 60, 300)
+        elif art["complexity_score"] >= 0.75:
+            hour, dwell = 19, min(art["reading_time_minutes"] * 60, 900)
+        else:
+            hour, dwell = 10, min(art["reading_time_minutes"] * 60, 600)
+
+        dow = (hash(doctor_id + article_id) % 5)  # weekday-ish
+        add(doctor_id, article_id, "impression", hour, dow, 0)
+        if rating >= 3:
+            add(doctor_id, article_id, "click", hour, dow, max(30, dwell // 3))
+        if rating >= 4:
+            add(doctor_id, article_id, "read_complete", hour, dow, dwell)
+
+    # Extra lunch-slot traffic (temporal signal for midday quick reads)
+    lunch_pairs = [
+        ("d1", "a33"), ("d4", "a34"), ("d11", "a33"), ("d2", "a35"), ("d8", "a40"),
+        ("d5", "a38"), ("d10", "a40"), ("d14", "a33"), ("d6", "a35"), ("d12", "a36"),
+    ]
+    for doctor_id, article_id in lunch_pairs:
+        art = art_by_id[article_id]
+        add(doctor_id, article_id, "impression", 12, 2, 0)
+        add(doctor_id, article_id, "click", 12, 2, 45)
+        add(doctor_id, article_id, "read_complete", 12, 2, art["reading_time_minutes"] * 55)
+
+    # Evening deep-read sessions
+    evening_pairs = [
+        ("d1", "a2"), ("d2", "a6"), ("d3", "a9"), ("d4", "a1"), ("d6", "a7"),
+        ("d11", "a2"), ("d12", "a22"), ("d7", "a11"),
+    ]
+    for doctor_id, article_id in evening_pairs:
+        art = art_by_id[article_id]
+        add(doctor_id, article_id, "impression", 20, 3, 0)
+        add(doctor_id, article_id, "click", 20, 3, 120)
+        add(doctor_id, article_id, "read_complete", 20, 3, art["reading_time_minutes"] * 65)
+
+    return logs
+
+
+EVENT_LOGS = _build_event_logs()

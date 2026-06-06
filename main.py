@@ -295,7 +295,8 @@ async function fetchRecommendations() {
   setLoading(false);
   document.getElementById('emptyState').style.display = 'none';
   document.getElementById('recPanel').style.display = 'block';
-  document.getElementById('recSubtitle').textContent = `Top recommendations for ${data.doctor.name} · blend α=${alpha}`;
+  document.getElementById('recSubtitle').textContent =
+    `Top recommendations for ${data.doctor.name} · blend α=${alpha} · ranker: ${data.ranker || 'hybrid'}`;
 
   // Show context banner
   if (data.context) {
@@ -569,6 +570,7 @@ async def recommend_for_doctor(
     alpha: float = 0.5,
     exclude_read: bool = True,
     hour: int | None = None,
+    use_ranker: bool = Query(True, description="Use LightGBM ranker when model is loaded"),
 ):
     """
     Get personalised article recommendations for a doctor.
@@ -582,10 +584,18 @@ async def recommend_for_doctor(
 
     effective_hour = hour if hour is not None else datetime.now(timezone.utc).hour
     slot = get_time_slot(effective_hour)
-    recs = get_rec().recommend(doctor_id, n=n, alpha=alpha, exclude_read=exclude_read, hour=effective_hour)
+    recs, ranker_mode = get_rec().recommend(
+        doctor_id,
+        n=n,
+        alpha=alpha,
+        exclude_read=exclude_read,
+        hour=effective_hour,
+        use_ranker=use_ranker,
+    )
     return {
         "doctor": doc,
         "recommendations": recs,
+        "ranker": ranker_mode,
         "context": {
             "hour":  effective_hour,
             "label": slot["label"],
@@ -619,4 +629,11 @@ async def similar_articles(article_id: str, n: int = 4):
 
 @app.get("/api/health", tags=["System"])
 async def health():
-    return {"status": "ok", "model": "hybrid (TF-IDF + numpy SVD)", "version": "0.1.0"}
+    rec = get_rec()
+    return {
+        "status": "ok",
+        "model": "hybrid (TF-IDF + numpy SVD) + LightGBM ranker",
+        "ranker_loaded": rec.ranker_loaded,
+        "event_logs": len(rec.event_logs_df),
+        "version": "0.2.0",
+    }

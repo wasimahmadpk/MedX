@@ -20,8 +20,8 @@ Hybrid medical content recommender — **content + collaborative filtering + tim
 | **Problem** | Surface the right article for a doctor's specialty, peers, and available time |
 | **Output** | Up to **5** ranked recommendations per doctor |
 | **UI** | Slide carousel (one card per slide), article modal, α slider, reading history |
-| **Stack** | FastAPI · scikit-learn · NumPy SVD · pandas · embedded HTML/CSS/JS |
-| **Data** | 15 doctors · 40 articles · 94 ratings (synthetic) |
+| **Stack** | FastAPI · scikit-learn · NumPy SVD · **LightGBM LambdaRank** · pandas |
+| **Data** | 15 doctors · 40 articles · 94 ratings · **319 event logs** (synthetic) |
 
 ---
 
@@ -50,6 +50,8 @@ Hybrid medical content recommender — **content + collaborative filtering + tim
 | Area | What you get |
 |---|---|
 | **Hybrid engine** | TF-IDF content scores + mean-centred NumPy SVD, blended with α |
+| **LightGBM ranker** | LambdaRank on log + content + collab features (pre-trained model shipped for Vercel) |
+| **Event logs** | Synthetic impressions, clicks, reads with **hour**, dwell time, day of week |
 | **Context-aware** | Re-ranks by hour — quick lunch reads at noon, deeper articles in the evening |
 | **Carousel UI** | Full-width slides with prev/next arrows, dot indicators, and position counter |
 | **Article modal** | Summary, complexity, read time, and similar articles on click |
@@ -149,11 +151,13 @@ MedX is scoped as a **recommender-engine PoC**, not a full HCP platform — enou
 |---|---|---|---|
 | Content-based | TF-IDF (1–2 grams) + cosine similarity | scikit-learn | Doctor profile vs articles (`tags`, `specialty`, `type`) |
 | Collaborative | Mean-centred matrix factorisation (SVD, **10 factors**) | NumPy | Predict ratings from doctor–article interactions |
-| Hybrid | Weighted sum after min–max normalisation | — | `α·content + (1−α)·collab` |
-| Time context | Rule-based multiplier | — | `context_boost(complexity, read_time, slot)` |
+| Hybrid fallback | Weighted sum after min–max normalisation | — | When ranker off or no `hour` |
+| **Ranker** | **LightGBM LambdaRank** | LightGBM | List order from 15 log + content features |
 | Similar items | Cosine similarity on article TF-IDF vectors | scikit-learn | Modal “similar articles” |
 
-**Not implemented:** temporal CF, deep learning, RAG, learning-to-rank, explicit diversity/fairness constraints.
+**Ranker features (15):** content/collab scores, α, specialty match, complexity, read time, context boost, hour, impressions, reads, peer reads at hour, lunch share, dwell time.
+
+**Not implemented:** separate temporal CF model, deep learning, RAG, online A/B tests.
 
 ---
 
@@ -213,7 +217,8 @@ final   = hybrid × context_boost(complexity, read_time, hour)
 | Content-based | scikit-learn | Match tags, specialty, reading history |
 | Collaborative | NumPy SVD (10 factors) | Predict from doctor–article ratings |
 | Hybrid blend | α ∈ [0, 1] | Balance both signals |
-| Context re-rank | Rule-based time slots | Boost articles that fit complexity & length |
+| **Learning-to-rank** | **LightGBM LambdaRank** | Final order from 15 log + content features |
+| Context re-rank | Rule-based time slots | In hybrid fallback; also a ranker feature |
 
 **Time slots** (from `recommender/engine.py`)
 
@@ -285,6 +290,7 @@ curl "http://localhost:8000/api/recommend/d1?n=5&alpha=0.5&hour=12"
 | `alpha` | `0.5` | Content weight (0 = collab, 1 = content) |
 | `hour` | server UTC | 0–23 for context ranking; UI sends browser local hour |
 | `exclude_read` | `true` | Skip articles the doctor already rated |
+| `use_ranker` | `true` | Use LightGBM when model loaded and `hour` set; else hybrid fallback |
 
 ```bash
 curl "https://med-x-plum.vercel.app/api/recommend/d1?n=5&alpha=0.5&hour=12"
@@ -329,6 +335,16 @@ Synthetic demo data in `data/seed_data.py`:
 | Articles | 40 |
 | Lunch-friendly quick reads (≤5 min) | 14 |
 | Ratings (1–5) | 94 |
+| **Event logs** | **319** |
+
+**Event log fields:** `doctor_id`, `article_id`, `event_type` (`impression` \| `click` \| `read_complete`), `hour`, `day_of_week`, `dwell_seconds`.
+
+**Retrain ranker (local, then commit model for Vercel):**
+
+```bash
+pip install -r requirements.txt
+python scripts/train_ranker.py   # writes recommender/models/lgb_ranker.txt
+```
 
 **Per-article fields** (used in UI and/or models):
 
@@ -375,10 +391,16 @@ Yes, as a **focused recommender demo** if you explain scope, limitations, and pr
 
 ```
 MedX/
-├── main.py                 # FastAPI + embedded carousel UI
-├── recommender/engine.py   # Hybrid engine, SVD, context re-ranker
-├── data/seed_data.py       # Doctors, articles, interactions
-├── vercel.json             # Vercel Python build + catch-all route
+├── main.py                      # FastAPI + embedded carousel UI
+├── recommender/
+│   ├── engine.py                # Hybrid engine + ranker integration
+│   ├── context.py               # Time slots + context_boost
+│   ├── features.py              # Log + content feature builder
+│   ├── ranker.py                # LightGBM load/predict
+│   └── models/lgb_ranker.txt    # Pre-trained ranker (bundled for Vercel)
+├── scripts/train_ranker.py      # Offline training script
+├── data/seed_data.py            # Doctors, articles, interactions, EVENT_LOGS
+├── vercel.json
 └── requirements.txt
 ```
 
