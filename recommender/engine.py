@@ -15,6 +15,7 @@ from data.seed_data import ARTICLES, DOCTORS, EVENT_LOGS, INTERACTIONS
 from recommender.context import context_boost, get_time_slot
 from recommender.features import LogStats, build_feature_row
 from recommender.ranker import LightGBMRanker
+from recommender.sklearn_ranker import SklearnRanker
 
 # Re-export for API consumers
 __all__ = ["MedXRecommender", "get_time_slot", "TIME_SLOTS"]
@@ -90,6 +91,7 @@ class MedXRecommender:
             self.event_logs_df,
         )
         self.ranker = LightGBMRanker()
+        self.sk_ranker = SklearnRanker()
         self._build_content_model()
         self._build_collab_model()
 
@@ -185,9 +187,38 @@ class MedXRecommender:
         scores = self.ranker.predict_scores(np.array(rows, dtype=np.float32))
         return pd.Series(scores, index=candidate_ids)
 
+    def _rank_scores(
+        self,
+        doctor_id: str,
+        candidate_ids: list[str],
+        alpha: float,
+        hour: int,
+    ) -> tuple[pd.Series, str]:
+        if self.ranker.is_loaded:
+            ranked = self._lgb_rank(doctor_id, candidate_ids, alpha, hour)
+            return ranked, "lightgbm"
+        if self.sk_ranker.is_loaded:
+            doctor = self.doctors_df[self.doctors_df["id"] == doctor_id].iloc[0]
+            content = self._content_scores_for_doctor(doctor_id)
+            collab = self._collab_scores_for_doctor(doctor_id)
+            rows = []
+            for aid in candidate_ids:
+                article = self.articles_df[self.articles_df["id"] == aid].iloc[0]
+                rows.append(
+                    build_feature_row(
+                        doctor, article, hour,
+                        float(content[aid]), float(collab[aid]), alpha, self.log_stats,
+                    )
+                )
+            scores = self.sk_ranker.predict_scores(np.array(rows, dtype=np.float32))
+            return pd.Series(scores, index=candidate_ids), "sklearn"
+        combined, _ = self._hybrid_scores(doctor_id, alpha, hour)
+        combined = combined.reindex(candidate_ids).dropna()
+        return combined, "hybrid"
+
     @property
     def ranker_loaded(self) -> bool:
-        return self.ranker.is_loaded
+        return self.ranker.is_loaded or self.sk_ranker.is_loaded
 
     # ------------------------------------------------------------------
     # Hybrid recommendation
@@ -214,13 +245,13 @@ class MedXRecommender:
             )
             candidate_ids = [aid for aid in candidate_ids if aid not in read_ids]
 
-        if use_ranker and self.ranker.is_loaded and hour is not None and candidate_ids:
-            ranker_mode = "lightgbm"
-            ranked = self._lgb_rank(doctor_id, candidate_ids, alpha, hour)
+        if use_ranker and hour is not None and candidate_ids:
+            ranked, ranker_mode = self._rank_scores(doctor_id, candidate_ids, alpha, hour)
         else:
             combined, _ = self._hybrid_scores(doctor_id, alpha, hour)
             combined = combined.reindex(candidate_ids).dropna()
             ranked = combined
+            ranker_mode = "hybrid"
 
         top_ids = ranked.nlargest(n).index.tolist()
         results = []

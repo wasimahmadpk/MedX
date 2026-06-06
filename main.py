@@ -630,10 +630,17 @@ async def similar_articles(article_id: str, n: int = 4):
 @app.get("/api/health", tags=["System"])
 async def health():
     rec = get_rec()
+    if rec.ranker.is_loaded:
+        ranker_backend = "lightgbm"
+    elif rec.sk_ranker.is_loaded:
+        ranker_backend = "sklearn"
+    else:
+        ranker_backend = "hybrid"
     return {
         "status": "ok",
-        "model": "hybrid (TF-IDF + numpy SVD) + LightGBM ranker",
+        "model": "hybrid (TF-IDF + numpy SVD) + learned ranker",
+        "ranker_backend": ranker_backend,
         "ranker_loaded": rec.ranker_loaded,
         "event_logs": len(rec.event_logs_df),
-        "version": "0.2.0",
+        "version": "0.2.1",
     }

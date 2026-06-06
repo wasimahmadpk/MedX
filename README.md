@@ -50,7 +50,7 @@ Hybrid medical content recommender — **content + collaborative filtering + tim
 | Area | What you get |
 |---|---|
 | **Hybrid engine** | TF-IDF content scores + mean-centred NumPy SVD, blended with α |
-| **LightGBM ranker** | LambdaRank on log + content + collab features (pre-trained model shipped for Vercel) |
+| **LightGBM ranker** | LambdaRank locally; **sklearn GBR fallback** embedded in `.py` for Vercel |
 | **Event logs** | Synthetic impressions, clicks, reads with **hour**, dwell time, day of week |
 | **Context-aware** | Re-ranks by hour — quick lunch reads at noon, deeper articles in the evening |
 | **Carousel UI** | Full-width slides with prev/next arrows, dot indicators, and position counter |
@@ -339,12 +339,16 @@ Synthetic demo data in `data/seed_data.py`:
 
 **Event log fields:** `doctor_id`, `article_id`, `event_type` (`impression` \| `click` \| `read_complete`), `hour`, `day_of_week`, `dwell_seconds`.
 
-**Retrain ranker (local, then commit model for Vercel):**
+**Retrain rankers (local):**
 
 ```bash
-pip install -r requirements.txt
-python scripts/train_ranker.py   # writes recommender/models/lgb_ranker.txt
+pip install -r requirements.txt -r requirements-dev.txt
+python scripts/train_ranker.py
+# → recommender/model_bundle.py      (LightGBM, local/dev)
+# → recommender/sk_model_bundle.py   (sklearn, bundled for Vercel)
 ```
+
+> **Vercel:** `lightgbm` is excluded from production `requirements.txt` (native libs crash serverless). The app loads the **sklearn ranker** from `sk_model_bundle.py` instead.
 
 **Per-article fields** (used in UI and/or models):
 
