@@ -325,7 +325,7 @@ curl "https://med-x-plum.vercel.app/api/recommend/d1?n=5&alpha=0.5&hour=20"
 
 ---
 
-## Dataset
+## Datasets
 
 Synthetic demo data in `data/seed_data.py`:
 
