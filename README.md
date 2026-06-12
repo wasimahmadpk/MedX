@@ -1,4 +1,4 @@
-# MedX
+# MedX - Keep doctors updated
 
 > **The right medical article, for the right doctor, at the right time.**
 
