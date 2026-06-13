@@ -13,7 +13,7 @@ Hybrid medical content recommender — **content + collaborative filtering + tim
 
 ---
 
-## At a glance
+## MedX at a glance
 
 | | |
 |---|---|
