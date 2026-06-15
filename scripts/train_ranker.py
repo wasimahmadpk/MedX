@@ -69,7 +69,7 @@ def save_sklearn_ranker(X: np.ndarray, y: np.ndarray) -> None:
     model = GradientBoostingRegressor(
         n_estimators=80,
         max_depth=4,
-        learning_rate=0.05,
+        learning_rate=0.025,
         random_state=42,
     )
     model.fit(X, y)
