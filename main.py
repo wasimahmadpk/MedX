@@ -39,7 +39,8 @@ _HTML = """<!DOCTYPE html>
     }
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--gray-50); color: var(--gray-800); min-height: 100vh; }
     header { background: var(--blue); color: white; padding: 0 2rem; display: flex; align-items: center; justify-content: space-between; height: 60px; box-shadow: 0 2px 8px rgba(0,0,0,.15); position: sticky; top: 0; z-index: 100; border-bottom: 3px solid var(--green); }
-    .logo { font-size: 1.35rem; font-weight: 700; letter-spacing: -.5px; }
+    .logo { font-size: 1.35rem; font-weight: 700; letter-spacing: -.5px; color: white; text-decoration: none; cursor: pointer; transition: opacity .15s; }
+    .logo:hover { opacity: .88; }
     .logo span { color: var(--green); }
     .header-badge { font-size: .65rem; background: var(--green); color: white; padding: 4px 10px; border-radius: 20px; font-weight: 600; letter-spacing: .4px; }
     .badge { font-size: .7rem; background: rgba(255,255,255,.2); padding: 3px 8px; border-radius: 20px; letter-spacing: .5px; }
@@ -164,7 +165,7 @@ _HTML = """<!DOCTYPE html>
 </head>
 <body>
 <header>
-  <div class="logo">Med<span>X</span></div>
+  <a href="/" class="logo" onclick="goHome(event)" aria-label="MedX home">Med<span>X</span></a>
   <span class="header-badge">Inspired by coliquio</span>
 </header>
 <div class="context-toast" id="contextToast" role="status" aria-live="polite">
@@ -581,6 +582,29 @@ function setLoading(on) {
   document.getElementById('recPanel').style.display = 'none';
   document.getElementById('emptyState').style.display = 'none';
   if (on) dismissContextToast();
+}
+
+function goHome(e) {
+  if (e) e.preventDefault();
+  closeModal();
+  dismissContextToast();
+  document.getElementById('doctorSelect').value = '';
+  document.getElementById('getRecsBtn').disabled = true;
+  document.getElementById('doctorProfile').style.display = 'none';
+  currentDoctor = null;
+  recSlides = [];
+  recIndex = 0;
+  document.getElementById('recTrack').innerHTML = '';
+  document.getElementById('recDots').innerHTML = '';
+  document.getElementById('recCounter').textContent = '';
+  document.getElementById('recSubtitle').textContent = '';
+  document.getElementById('recPanel').style.display = 'none';
+  document.getElementById('allPanel').style.display = 'none';
+  document.getElementById('historyPanel').style.display = 'none';
+  document.getElementById('emptyState').style.display = 'block';
+  setLoading(false);
+  switchTab('rec');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 init();
