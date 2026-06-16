@@ -42,7 +42,6 @@ _HTML = """<!DOCTYPE html>
     .logo { font-size: 1.35rem; font-weight: 700; letter-spacing: -.5px; color: white; text-decoration: none; cursor: pointer; transition: opacity .15s; }
     .logo:hover { opacity: .88; }
     .logo span { color: var(--green); }
-    .header-badge { font-size: .65rem; background: var(--green); color: white; padding: 4px 10px; border-radius: 20px; font-weight: 600; letter-spacing: .4px; }
     .badge { font-size: .7rem; background: rgba(255,255,255,.2); padding: 3px 8px; border-radius: 20px; letter-spacing: .5px; }
     .layout { display: grid; grid-template-columns: 300px 1fr; gap: 1.5rem; max-width: 1200px; margin: 1.5rem auto; padding: 0 1.5rem; }
     .sidebar { display: flex; flex-direction: column; gap: 1rem; }
@@ -166,7 +165,6 @@ _HTML = """<!DOCTYPE html>
 <body>
 <header>
   <a href="/" class="logo" onclick="goHome(event)" aria-label="MedX home">Med<span>X</span></a>
-  <span class="header-badge">Inspired by coliquio</span>
 </header>
 <div class="context-toast" id="contextToast" role="status" aria-live="polite">
   <div class="context-toast-inner">
@@ -219,7 +217,6 @@ _HTML = """<!DOCTYPE html>
       <div class="card-header">About MedX</div>
       <div class="card-body" style="font-size:.78rem;color:var(--gray-600);line-height:1.6;">
         <p>The right medical article, for the right doctor, at the right time.</p>
-        <p style="margin-top:.65rem;">UI inspired from <strong style="color:var(--green-dark);">coliquio</strong> — the German HCP community platform.</p>
       </div>
     </div>
   </aside>
@@ -264,7 +261,7 @@ _HTML = """<!DOCTYPE html>
     </div>
   </main>
 </div>
-<footer class="site-footer">MedX · Hybrid recommender PoC · UI inspired from <strong>coliquio</strong></footer>
+<footer class="site-footer">MedX · Hybrid recommender PoC</footer>
 <!-- Article Modal -->
 <div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
   <div class="modal" id="modal">
