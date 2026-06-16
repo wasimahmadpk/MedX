@@ -165,7 +165,7 @@ _HTML = """<!DOCTYPE html>
 <body>
 <header>
   <div class="logo">Med<span>X</span></div>
-  <span class="header-badge">HCP PoC</span>
+  <span class="header-badge">Inspired by coliquio</span>
 </header>
 <div class="context-toast" id="contextToast" role="status" aria-live="polite">
   <div class="context-toast-inner">
@@ -218,6 +218,7 @@ _HTML = """<!DOCTYPE html>
       <div class="card-header">About MedX</div>
       <div class="card-body" style="font-size:.78rem;color:var(--gray-600);line-height:1.6;">
         <p>The right medical article, for the right doctor, at the right time.</p>
+        <p style="margin-top:.65rem;">UI inspired from <strong style="color:var(--green-dark);">coliquio</strong> — the German HCP community platform.</p>
       </div>
     </div>
   </aside>
@@ -262,7 +263,7 @@ _HTML = """<!DOCTYPE html>
     </div>
   </main>
 </div>
-<footer class="site-footer">MedX · Hybrid recommender prototype · Inspired by <strong>coliquio</strong> HCP platforms</footer>
+<footer class="site-footer">MedX · Hybrid recommender PoC · UI inspired from <strong>coliquio</strong></footer>
 <!-- Article Modal -->
 <div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
   <div class="modal" id="modal">
