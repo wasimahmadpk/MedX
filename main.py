@@ -96,8 +96,19 @@ _HTML = """<!DOCTYPE html>
     .btn { display: inline-flex; align-items: center; gap: .4rem; padding: .5rem 1rem; background: var(--blue); color: white; border: none; border-radius: 6px; font-size: .85rem; font-weight: 600; cursor: pointer; transition: background .2s; }
     .btn:hover { background: var(--blue-mid); }
     .btn:disabled { background: var(--gray-400); cursor: not-allowed; }
-    .context-banner { display:none; background: var(--blue-light); border: 1px solid #bfdbfe; border-radius: 8px; padding: .6rem .9rem; margin-bottom: 1rem; font-size: .8rem; color: var(--blue); display:flex; align-items:center; gap:.5rem; }
-    .context-banner strong { font-weight: 700; }
+    .context-toast { position: fixed; top: 72px; left: 50%; transform: translateX(-50%) translateY(-120%); opacity: 0; z-index: 150; width: min(420px, calc(100vw - 2rem)); pointer-events: none; transition: transform .45s cubic-bezier(.4,0,.2,1), opacity .35s ease; }
+    .context-toast.show { transform: translateX(-50%) translateY(0); opacity: 1; pointer-events: auto; }
+    .context-toast-inner { background: white; border-radius: 12px; box-shadow: 0 12px 40px rgba(26,111,191,.18), 0 4px 12px rgba(0,0,0,.08); border: 1px solid #bfdbfe; padding: .85rem 1rem .85rem .9rem; display: flex; align-items: flex-start; gap: .75rem; position: relative; overflow: hidden; }
+    .context-toast-icon { font-size: 1.6rem; line-height: 1; flex-shrink: 0; margin-top: .1rem; }
+    .context-toast-body { flex: 1; min-width: 0; }
+    .context-toast-title { font-size: .88rem; font-weight: 700; color: var(--blue); margin-bottom: .2rem; }
+    .context-toast-msg { font-size: .78rem; color: var(--gray-600); line-height: 1.45; }
+    .context-toast-msg strong { color: var(--gray-800); font-weight: 600; }
+    .context-toast-close { background: none; border: none; font-size: 1.25rem; line-height: 1; color: var(--gray-400); cursor: pointer; padding: .15rem; margin: -.15rem -.1rem 0 0; flex-shrink: 0; border-radius: 4px; transition: color .15s, background .15s; }
+    .context-toast-close:hover { color: var(--gray-800); background: var(--gray-100); }
+    .context-toast-progress { height: 3px; background: var(--blue-light); border-radius: 0 0 12px 12px; overflow: hidden; margin-top: -1px; }
+    .context-toast-progress span { display: block; height: 100%; background: linear-gradient(90deg, var(--blue), var(--blue-mid)); width: 100%; transform-origin: left; animation: toast-progress 5s linear forwards; }
+    @keyframes toast-progress { from { transform: scaleX(1); } to { transform: scaleX(0); } }
     .art-meta { display:flex; align-items:center; gap:.75rem; margin-top:.5rem; font-size:.7rem; color:var(--gray-400); }
     .art-meta span { display:flex; align-items:center; gap:.2rem; }
     .complexity-bar { width:40px; height:4px; background:var(--gray-200); border-radius:4px; overflow:hidden; display:inline-block; vertical-align:middle; margin-left:3px; }
@@ -143,6 +154,17 @@ _HTML = """<!DOCTYPE html>
 <header>
   <div class="logo">Med<span>X</span></div>
 </header>
+<div class="context-toast" id="contextToast" role="status" aria-live="polite">
+  <div class="context-toast-inner">
+    <span class="context-toast-icon" id="contextToastIcon"></span>
+    <div class="context-toast-body">
+      <div class="context-toast-title" id="contextToastTitle"></div>
+      <div class="context-toast-msg" id="contextToastMsg"></div>
+    </div>
+    <button type="button" class="context-toast-close" onclick="dismissContextToast()" aria-label="Dismiss">×</button>
+  </div>
+  <div class="context-toast-progress" id="contextToastProgress"><span></span></div>
+</div>
 <div class="layout">
   <aside class="sidebar">
     <div class="card">
@@ -196,7 +218,6 @@ _HTML = """<!DOCTYPE html>
           <button class="tab-btn" id="tabHistory" onclick="switchTab('history')">Reading History</button>
         </div>
         <div class="spinner" id="spinner"></div>
-        <div class="context-banner" id="contextBanner" style="display:none;"></div>
         <div class="empty-state" id="emptyState">
           <div class="icon">🔬</div>
           <h3>Select a doctor to get started</h3>
@@ -298,15 +319,41 @@ async function fetchRecommendations() {
   document.getElementById('recSubtitle').textContent =
     `Top recommendations for ${data.doctor.name} · blend α=${alpha} · ranker: ${data.ranker || 'hybrid'}`;
 
-  // Show context banner
-  if (data.context) {
-    const c = data.context;
-    const banner = document.getElementById('contextBanner');
-    banner.style.display = 'flex';
-    banner.innerHTML = `<span style="font-size:1.1rem">${c.icon}</span> <span><strong>${c.label}</strong> — showing articles that fit your reading time right now (≤${c.max_reading_min} min, complexity match)</span>`;
-  }
+  // Show context toast
+  if (data.context) showContextToast(data.context);
 
   renderRecCarousel(data.recommendations);
+}
+
+let contextToastTimer = null;
+const CONTEXT_TOAST_MS = 5000;
+
+function dismissContextToast() {
+  const toast = document.getElementById('contextToast');
+  if (!toast) return;
+  toast.classList.remove('show');
+  if (contextToastTimer) {
+    clearTimeout(contextToastTimer);
+    contextToastTimer = null;
+  }
+}
+
+function showContextToast(c) {
+  dismissContextToast();
+  const toast = document.getElementById('contextToast');
+  const complexityPct = Math.round((c.ideal_complexity ?? 0.5) * 100);
+  document.getElementById('contextToastIcon').textContent = c.icon || '🕐';
+  document.getElementById('contextToastTitle').textContent = c.label || 'Time context';
+  document.getElementById('contextToastMsg').innerHTML =
+    `Showing articles that fit your reading time right now — <strong>≤${c.max_reading_min} min</strong> · complexity match (~${complexityPct}%)`;
+  const bar = document.querySelector('#contextToastProgress span');
+  if (bar) {
+    bar.style.animation = 'none';
+    void bar.offsetWidth;
+    bar.style.animation = `toast-progress ${CONTEXT_TOAST_MS}ms linear forwards`;
+  }
+  requestAnimationFrame(() => toast.classList.add('show'));
+  contextToastTimer = setTimeout(dismissContextToast, CONTEXT_TOAST_MS);
 }
 
 let recSlides = [];
@@ -512,7 +559,7 @@ function setLoading(on) {
   document.getElementById('spinner').style.display = on ? 'block' : 'none';
   document.getElementById('recPanel').style.display = 'none';
   document.getElementById('emptyState').style.display = 'none';
-  if (on) document.getElementById('contextBanner').style.display = 'none';
+  if (on) dismissContextToast();
 }
 
 init();
