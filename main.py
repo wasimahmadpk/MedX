@@ -25,6 +25,8 @@ _HTML = """<!DOCTYPE html>
       --blue-light:#e8f2fc;
       --blue-mid:  #2d88d4;
       --green:     #19a974;
+      --green-light:#e8f7f0;
+      --green-dark:#148f63;
       --gray-50:   #f8fafc;
       --gray-100:  #f1f5f9;
       --gray-200:  #e2e8f0;
@@ -36,14 +38,16 @@ _HTML = """<!DOCTYPE html>
       --shadow:    0 2px 12px rgba(0,0,0,.08);
     }
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--gray-50); color: var(--gray-800); min-height: 100vh; }
-    header { background: var(--blue); color: white; padding: 0 2rem; display: flex; align-items: center; justify-content: space-between; height: 60px; box-shadow: 0 2px 8px rgba(0,0,0,.15); position: sticky; top: 0; z-index: 100; }
+    header { background: var(--blue); color: white; padding: 0 2rem; display: flex; align-items: center; justify-content: space-between; height: 60px; box-shadow: 0 2px 8px rgba(0,0,0,.15); position: sticky; top: 0; z-index: 100; border-bottom: 3px solid var(--green); }
     .logo { font-size: 1.35rem; font-weight: 700; letter-spacing: -.5px; }
-    .logo span { color: #7dd3fc; }
+    .logo span { color: var(--green); }
+    .header-badge { font-size: .65rem; background: var(--green); color: white; padding: 4px 10px; border-radius: 20px; font-weight: 600; letter-spacing: .4px; }
     .badge { font-size: .7rem; background: rgba(255,255,255,.2); padding: 3px 8px; border-radius: 20px; letter-spacing: .5px; }
     .layout { display: grid; grid-template-columns: 300px 1fr; gap: 1.5rem; max-width: 1200px; margin: 1.5rem auto; padding: 0 1.5rem; }
     .sidebar { display: flex; flex-direction: column; gap: 1rem; }
     .card { background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
-    .card-header { background: var(--blue); color: white; padding: .65rem 1rem; font-size: .8rem; font-weight: 600; text-transform: uppercase; letter-spacing: .8px; }
+    .card-header { background: var(--blue); color: white; padding: .65rem 1rem; font-size: .8rem; font-weight: 600; text-transform: uppercase; letter-spacing: .8px; border-left: 4px solid transparent; }
+    #mainCard > .card-header { border-left-color: var(--green); }
     .card-body { padding: 1rem; }
     select { width: 100%; padding: .55rem .75rem; border: 1.5px solid var(--gray-200); border-radius: 6px; font-size: .9rem; background: white; color: var(--gray-800); cursor: pointer; outline: none; transition: border-color .2s; }
     select:focus { border-color: var(--blue); }
@@ -71,6 +75,10 @@ _HTML = """<!DOCTYPE html>
     .article-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,.12); }
     .article-card.selected { border-left-color: var(--green); box-shadow: 0 0 0 2px var(--green); }
     .art-type { font-size: .65rem; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: var(--gray-400); margin-bottom: .3rem; }
+    .art-type.type-highlight { color: var(--green-dark); }
+    .type-pill { display: inline-block; background: var(--green-light); color: var(--green-dark); padding: 2px 7px; border-radius: 20px; margin-right: .25rem; }
+    .rec-slide:first-child .article-card { border-left-color: var(--green); }
+    .rec-rank { display: inline-block; font-size: .62rem; font-weight: 700; background: var(--green); color: white; padding: 2px 7px; border-radius: 20px; margin-bottom: .35rem; letter-spacing: .3px; }
     .art-title { font-weight: 600; font-size: .9rem; line-height: 1.35; margin-bottom: .5rem; }
     .art-summary { font-size: .78rem; color: var(--gray-600); line-height: 1.5; margin-bottom: .65rem; }
     .tags { display: flex; flex-wrap: wrap; gap: .3rem; }
@@ -96,9 +104,11 @@ _HTML = """<!DOCTYPE html>
     .btn { display: inline-flex; align-items: center; gap: .4rem; padding: .5rem 1rem; background: var(--blue); color: white; border: none; border-radius: 6px; font-size: .85rem; font-weight: 600; cursor: pointer; transition: background .2s; }
     .btn:hover { background: var(--blue-mid); }
     .btn:disabled { background: var(--gray-400); cursor: not-allowed; }
+    .btn-accent { background: var(--green); }
+    .btn-accent:hover:not(:disabled) { background: var(--green-dark); }
     .context-toast { position: fixed; top: 72px; left: 50%; transform: translateX(-50%) translateY(-120%); opacity: 0; z-index: 150; width: min(420px, calc(100vw - 2rem)); pointer-events: none; transition: transform .45s cubic-bezier(.4,0,.2,1), opacity .35s ease; }
     .context-toast.show { transform: translateX(-50%) translateY(0); opacity: 1; pointer-events: auto; }
-    .context-toast-inner { background: white; border-radius: 12px; box-shadow: 0 12px 40px rgba(26,111,191,.18), 0 4px 12px rgba(0,0,0,.08); border: 1px solid #bfdbfe; padding: .85rem 1rem .85rem .9rem; display: flex; align-items: flex-start; gap: .75rem; position: relative; overflow: hidden; }
+    .context-toast-inner { background: white; border-radius: 12px; box-shadow: 0 12px 40px rgba(26,111,191,.18), 0 4px 12px rgba(0,0,0,.08); border: 1px solid #bfdbfe; border-left: 4px solid var(--green); padding: .85rem 1rem .85rem .9rem; display: flex; align-items: flex-start; gap: .75rem; position: relative; overflow: hidden; }
     .context-toast-icon { font-size: 1.6rem; line-height: 1; flex-shrink: 0; margin-top: .1rem; }
     .context-toast-body { flex: 1; min-width: 0; }
     .context-toast-title { font-size: .88rem; font-weight: 700; color: var(--blue); margin-bottom: .2rem; }
@@ -107,7 +117,7 @@ _HTML = """<!DOCTYPE html>
     .context-toast-close { background: none; border: none; font-size: 1.25rem; line-height: 1; color: var(--gray-400); cursor: pointer; padding: .15rem; margin: -.15rem -.1rem 0 0; flex-shrink: 0; border-radius: 4px; transition: color .15s, background .15s; }
     .context-toast-close:hover { color: var(--gray-800); background: var(--gray-100); }
     .context-toast-progress { height: 3px; background: var(--blue-light); border-radius: 0 0 12px 12px; overflow: hidden; margin-top: -1px; }
-    .context-toast-progress span { display: block; height: 100%; background: linear-gradient(90deg, var(--blue), var(--blue-mid)); width: 100%; transform-origin: left; animation: toast-progress 5s linear forwards; }
+    .context-toast-progress span { display: block; height: 100%; background: linear-gradient(90deg, var(--blue), var(--green)); width: 100%; transform-origin: left; animation: toast-progress 5s linear forwards; }
     @keyframes toast-progress { from { transform: scaleX(1); } to { transform: scaleX(0); } }
     .art-meta { display:flex; align-items:center; gap:.75rem; margin-top:.5rem; font-size:.7rem; color:var(--gray-400); }
     .art-meta span { display:flex; align-items:center; gap:.2rem; }
@@ -127,7 +137,7 @@ _HTML = """<!DOCTYPE html>
     .carousel-footer { display: flex; flex-direction: column; align-items: center; gap: .45rem; margin-top: .5rem; }
     .carousel-dots { display: flex; gap: .45rem; justify-content: center; }
     .carousel-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--gray-200); border: none; cursor: pointer; padding: 0; transition: all .25s; }
-    .carousel-dot.active { background: var(--blue); width: 24px; border-radius: 4px; }
+    .carousel-dot.active { background: var(--green); width: 24px; border-radius: 4px; }
     .carousel-counter { font-size: .72rem; color: var(--gray-400); font-weight: 500; letter-spacing: .3px; }
     /* Modal */
     .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:200; align-items:center; justify-content:center; padding:1rem; }
@@ -148,11 +158,14 @@ _HTML = """<!DOCTYPE html>
     .modal-similar-list { display:flex; flex-direction:column; gap:.4rem; margin-top:.2rem; }
     .modal-sim-item { font-size:.78rem; padding:.45rem .65rem; background:var(--gray-50); border-radius:6px; cursor:pointer; border-left:3px solid var(--blue-light); color:var(--gray-700); transition:background .15s; }
     .modal-sim-item:hover { background:var(--blue-light); }
+    .site-footer { margin-top: 2rem; background: var(--blue); color: rgba(255,255,255,.85); text-align: center; padding: .65rem 1rem; font-size: .72rem; border-top: 4px solid var(--green); }
+    .site-footer strong { color: var(--green); font-weight: 600; }
   </style>
 </head>
 <body>
 <header>
   <div class="logo">Med<span>X</span></div>
+  <span class="header-badge">HCP PoC</span>
 </header>
 <div class="context-toast" id="contextToast" role="status" aria-live="polite">
   <div class="context-toast-inner">
@@ -173,7 +186,7 @@ _HTML = """<!DOCTYPE html>
         <select id="doctorSelect" onchange="onDoctorChange()">
           <option value="">— Choose a doctor —</option>
         </select>
-        <button class="btn" id="getRecsBtn" disabled onclick="fetchRecommendations()">Get Recommendations</button>
+        <button class="btn btn-accent" id="getRecsBtn" disabled onclick="fetchRecommendations()">Get Recommendations</button>
       </div>
     </div>
     <div class="card doctor-profile" id="doctorProfile">
@@ -249,6 +262,7 @@ _HTML = """<!DOCTYPE html>
     </div>
   </main>
 </div>
+<footer class="site-footer">MedX · Hybrid recommender prototype · Inspired by <strong>coliquio</strong> HCP platforms</footer>
 <!-- Article Modal -->
 <div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
   <div class="modal" id="modal">
@@ -317,7 +331,7 @@ async function fetchRecommendations() {
   document.getElementById('emptyState').style.display = 'none';
   document.getElementById('recPanel').style.display = 'block';
   document.getElementById('recSubtitle').textContent =
-    `Top recommendations for ${data.doctor.name} · blend α=${alpha} · ranker: ${data.ranker || 'hybrid'}`;
+    `Top recommendations for ${data.doctor.name}`;
 
   // Show context toast
   if (data.context) showContextToast(data.context);
@@ -369,7 +383,7 @@ function renderRecCarousel(recommendations) {
   recSlides.forEach((art, i) => {
     const slide = document.createElement('div');
     slide.className = 'rec-slide';
-    slide.appendChild(buildArticleCard(art, true));
+    slide.appendChild(buildArticleCard(art, true, i === 0));
     track.appendChild(slide);
     const dot = document.createElement('button');
     dot.type = 'button';
@@ -442,7 +456,7 @@ function switchTab(tab) {
   }
 }
 
-function buildArticleCard(art, showScore = false) {
+function buildArticleCard(art, showScore = false, isTopRec = false) {
   const card = document.createElement('div');
   card.className = 'article-card';
   card.dataset.id = art.id;
@@ -451,8 +465,14 @@ function buildArticleCard(art, showScore = false) {
   const complexPct = art.complexity_score != null ? Math.round(art.complexity_score * 100) : null;
   const readTime = art.reading_time_minutes ?? null;
   const ctxBadge = art.context_icon ? `<span class="ctx-badge">${art.context_icon} ${art.context_label}</span>` : '';
+  const typeLabel = art.type.replace(/_/g, ' ');
+  const typeHighlight = ['education', 'guidelines'].includes(art.type);
+  const typeHtml = typeHighlight
+    ? `<span class="type-pill">${typeLabel}</span>`
+    : typeLabel;
   card.innerHTML = `
-    <div class="art-type">${art.type.replace(/_/g,' ')}${ctxBadge ? ' · ' + ctxBadge : ''}</div>
+    ${isTopRec ? '<div class="rec-rank">Top pick</div>' : ''}
+    <div class="art-type">${typeHtml}${ctxBadge ? ' · ' + ctxBadge : ''}</div>
     <div class="art-title">${art.title}</div>
     <div class="art-summary">${art.summary}</div>
     <div class="tags">
