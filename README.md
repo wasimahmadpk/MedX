@@ -9,7 +9,9 @@
 
 **[Live app](https://med-x-plum.vercel.app)** · **[API docs](https://med-x-plum.vercel.app/docs)** · **[GitHub](https://github.com/wasimahmadpk/MedX)**
 
-Hybrid medical content recommender for **HCP-style feeds** (coliquio-inspired): **content + collaborative filtering + event-log features + learned ranking** — with a carousel UI and REST API on Vercel.
+Hybrid medical content recommender for **HCP-style feeds**: **content + collaborative filtering + event-log features + learned ranking** — with a carousel UI and REST API on Vercel.
+
+Standalone **MedX** prototype (no third-party branding in the UI). Layout and UX patterns follow professional medical information platforms; see [scope vs full HCP platforms](#scope-vs-full-hcp-platforms-eg-coliquio) below.
 
 ---
 
@@ -19,7 +21,7 @@ Hybrid medical content recommender for **HCP-style feeds** (coliquio-inspired): 
 |---|---|
 | **Problem** | Surface the right article for a doctor's specialty, peers, and available time |
 | **Output** | Up to **5** ranked recommendations per doctor |
-| **UI** | Slide carousel, article modal, α slider, reading history |
+| **UI** | Slide carousel, article modal, α slider, reading history, context toast |
 | **Retrieval** | TF-IDF content scores + NumPy SVD collaborative scores |
 | **Ranking** | **sklearn GBR** on Vercel · **LightGBM LambdaRank** locally (optional) |
 | **Data** | 15 doctors · 40 articles · 94 ratings · **319 event logs** (synthetic) |
@@ -31,7 +33,7 @@ Hybrid medical content recommender for **HCP-style feeds** (coliquio-inspired): 
 - [Features](#features)
 - [Why MedX](#why-medx)
 - [Ranking pipeline](#ranking-pipeline)
-- [MedX vs full HCP platforms](#medx-vs-full-hcp-platforms-eg-coliquio)
+- [Scope vs full HCP platforms](#scope-vs-full-hcp-platforms-eg-coliquio)
 - [Interview & portfolio](#interview--portfolio)
 - [Algorithms](#algorithms-implemented)
 - [Live demo](#live-demo)
@@ -58,6 +60,8 @@ Hybrid medical content recommender for **HCP-style feeds** (coliquio-inspired): 
 | **Hybrid fallback** | α-blend + time rules if ranker disabled or no `hour` |
 | **Context-aware** | Lunch vs evening fit via `complexity_score` and `reading_time_minutes` |
 | **Carousel UI** | Full-width slides, dots, counter, article modal |
+| **Context toast** | Auto-dismiss popup for time slot (lunch vs evening) after each fetch |
+| **Home reset** | Click **MedX** logo to clear doctor, carousel, and modal |
 | **Algorithm controls** | Live α slider (feeds ranker features + fallback blend) |
 | **REST API** | Same logic as UI; Swagger at `/docs` |
 | **Serverless-ready** | UI + ranker models embedded in `.py` files for Vercel |
@@ -107,11 +111,11 @@ flowchart TD
 
 ---
 
-## MedX vs full HCP platforms (e.g. coliquio)
+## Scope vs full HCP platforms (e.g. coliquio)
 
-[coliquio](https://www.coliquio.de) is a DACH **doctor-only** network: verified identity, peer forums, CME, medical news, and pharma Infocenters. MedX prototypes only the **recommender engine** — not forum, CME, or compliance layers.
+Full platforms such as [coliquio](https://www.coliquio.de) (DACH **doctor-only** network) combine verified identity, peer forums, CME, medical news, and pharma Infocenters. **MedX prototypes only the recommender engine** — not forum, CME, or compliance layers. The live UI is MedX-branded; coliquio is referenced here for scope comparison only.
 
-| Capability | coliquio-style platform | MedX PoC |
+| Capability | Full HCP platform | MedX PoC |
 |---|---|---|
 | Verified HCP login | ✅ | ❌ dropdown doctor |
 | Peer forum / cases | ✅ | ❌ |
@@ -165,8 +169,9 @@ flowchart TD
 | 1 | Select a doctor → **Get Recommendations** |
 | 2 | Browse the **carousel** (up to 5 slides) |
 | 3 | Move **α** — changes ranker input and fallback blend |
-| 4 | Note **context banner** (uses browser local hour) |
+| 4 | Watch the **context toast** (auto-dismiss ~5s; uses browser local hour) |
 | 5 | Click a slide → modal + similar articles |
+| 6 | Click **MedX** in the header to reset to the home view |
 
 ```bash
 # Health — check which ranker is active
@@ -215,7 +220,7 @@ fallback  = α·content + (1−α)·collab  ×  context_boost(hour)
 | ML | scikit-learn 1.8.0, NumPy, pandas |
 | Ranker (prod) | sklearn GBR in `sk_model_bundle.py` |
 | Ranker (dev) | LightGBM in `requirements-dev.txt` |
-| UI | Embedded HTML/CSS/JS in `main.py` |
+| UI | Embedded HTML/CSS/JS in `main.py` (carousel, context toast, modal) |
 | Hosting | Vercel Python (`vercel.json`) |
 
 ---
