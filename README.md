@@ -1,4 +1,4 @@
-# MedX - Keep doctors updated
+# MedX — Keep doctors updated
 
 > **The right medical article, for the right doctor, at the right time.**
 
@@ -9,68 +9,58 @@
 
 **[Live app](https://med-x-plum.vercel.app)** · **[API docs](https://med-x-plum.vercel.app/docs)** · **[GitHub](https://github.com/wasimahmadpk/MedX)**
 
-Hybrid medical content recommender for **HCP-style feeds**: **content + collaborative filtering + event-log features + learned ranking** — with a carousel UI and REST API on Vercel.
+MedX is a deployable **hybrid medical content recommender** for HCP-style feeds. It combines **TF-IDF content filtering**, **SVD collaborative filtering**, **synthetic event-log features**, and a **learned ranker** — served through a carousel UI and REST API on Vercel.
 
-Standalone **MedX** prototype (no third-party branding in the UI). Layout and UX patterns follow professional medical information platforms; see [scope vs full HCP platforms](#scope-vs-full-hcp-platforms-eg-coliquio) below.
+Standalone **MedX** prototype with no third-party branding in the UI.
 
 ---
 
-## MedX at a glance
+## Try it now
+
+**Web UI:** [med-x-plum.vercel.app](https://med-x-plum.vercel.app)
+
+| Step | What to do |
+|---|---|
+| 1 | Pick a doctor → **Get Recommendations** |
+| 2 | Swipe the **carousel** (up to 5 articles) |
+| 3 | Drag **α** to shift content vs collaborative weight |
+| 4 | Note the **context toast** (lunch vs evening; uses your local hour) |
+| 5 | Open a slide → article modal + similar articles |
+| 6 | Click **MedX** in the header to reset |
+
+**Sample doctors:** `d1` cardiology · `d2` neurology · `d8` general practice · `d10` psychiatry
+
+```bash
+# Health check
+curl -s https://med-x-plum.vercel.app/api/health | jq
+
+# Lunch vs evening — compare ranked titles
+curl -s "https://med-x-plum.vercel.app/api/recommend/d1?n=5&hour=12" | jq '.recommendations[].title'
+curl -s "https://med-x-plum.vercel.app/api/recommend/d1?n=5&hour=20" | jq '.recommendations[].title'
+
+# Force rule-based hybrid (no learned ranker)
+curl -s "https://med-x-plum.vercel.app/api/recommend/d1?n=5&use_ranker=false" | jq '.ranker'
+```
+
+---
+
+## At a glance
 
 | | |
 |---|---|
-| **Problem** | Surface the right article for a doctor's specialty, peers, and available time |
-| **Output** | Up to **5** ranked recommendations per doctor |
-| **UI** | Slide carousel, article modal, α slider, reading history, context toast |
-| **Retrieval** | TF-IDF content scores + NumPy SVD collaborative scores |
+| **Problem** | Surface the right article for specialty, peers, and available time |
+| **Output** | Top **5** ranked recommendations per doctor |
+| **Retrieval** | TF-IDF content scores + mean-centred NumPy SVD |
 | **Ranking** | **sklearn GBR** on Vercel · **LightGBM LambdaRank** locally (optional) |
+| **Context** | Time-of-day rules + log patterns (hour, dwell, lunch share) |
 | **Data** | 15 doctors · 40 articles · 94 ratings · **319 event logs** (synthetic) |
+| **UI** | Carousel, article modal, α slider, reading history, context toast |
 
 ---
 
-## Contents
+## How it works
 
-- [Features](#features)
-- [Why MedX](#why-medx)
-- [Ranking pipeline](#ranking-pipeline)
-- [Scope vs full HCP platforms](#scope-vs-full-hcp-platforms-eg-coliquio)
-- [Interview & portfolio](#interview--portfolio)
-- [Algorithms](#algorithms-implemented)
-- [Live demo](#live-demo)
-- [How it works](#how-it-works)
-- [Tech stack](#tech-stack)
-- [Quick start](#quick-start)
-- [API](#api)
-- [Dataset & event logs](#dataset--event-logs)
-- [Evaluation](#evaluation)
-- [FAQ](#faq)
-- [Project structure](#project-structure)
-- [Deploy](#deploy)
-- [Author](#author)
-
----
-
-## Features
-
-| Area | What you get |
-|---|---|
-| **Hybrid retrieval** | TF-IDF content scores + mean-centred NumPy SVD collaborative scores |
-| **Event logs** | Synthetic impressions, clicks, reads with **hour**, dwell time, day of week |
-| **Learned ranker** | 15 features → **GradientBoostingRegressor** on Vercel; **LightGBM LambdaRank** when trained locally |
-| **Hybrid fallback** | α-blend + time rules if ranker disabled or no `hour` |
-| **Context-aware** | Lunch vs evening fit via `complexity_score` and `reading_time_minutes` |
-| **Carousel UI** | Full-width slides, dots, counter, article modal |
-| **Context toast** | Auto-dismiss popup for time slot (lunch vs evening) after each fetch |
-| **Home reset** | Click **MedX** logo to clear doctor, carousel, and modal |
-| **Algorithm controls** | Live α slider (feeds ranker features + fallback blend) |
-| **REST API** | Same logic as UI; Swagger at `/docs` |
-| **Serverless-ready** | UI + ranker models embedded in `.py` files for Vercel |
-
----
-
-## Why MedX
-
-Doctors are overloaded with literature. A useful recommender must solve three problems at once:
+Doctors are overloaded with literature. MedX answers three questions for every article:
 
 | Signal | Question | Method |
 |---|---|---|
@@ -78,13 +68,7 @@ Doctors are overloaded with literature. A useful recommender must solve three pr
 | **Behaviour** | Do peers with similar tastes read this? | SVD matrix factorisation |
 | **Timing** | Can they read it *now*? | Context features + log patterns by hour |
 
-**Why hybrid?** Content-only misses cross-specialty discoveries. Collaborative-only fails for new doctors. MedX combines both, then **learns list order** from log-derived features.
-
----
-
-## Ranking pipeline
-
-Matrix factorisation **scores** items; a separate step **orders** the feed:
+Content-only misses cross-specialty discoveries. Collaborative-only fails for new doctors. MedX combines both, then **learns list order** from log-derived features.
 
 ```mermaid
 flowchart TD
@@ -103,93 +87,9 @@ flowchart TD
 | Stage | Algorithm | Role |
 |---|---|---|
 | **1. Scoring** | TF-IDF + SVD | Relevance signals per article |
-| **2. Features** | 15 log + content fields | Input to ranker |
-| **3. Ranking** | sklearn GBR (prod) / LightGBM (local) | Learn final list order |
-| **4. Fallback** | α-blend × context boost | When ranker off |
-
-**Production (Vercel):** `ranker_backend: "sklearn"` — LightGBM excluded (native libs crash serverless).
-
----
-
-## Scope vs full HCP platforms (e.g. coliquio)
-
-Full platforms such as [coliquio](https://www.coliquio.de) (DACH **doctor-only** network) combine verified identity, peer forums, CME, medical news, and pharma Infocenters. **MedX prototypes only the recommender engine** — not forum, CME, or compliance layers. The live UI is MedX-branded; coliquio is referenced here for scope comparison only.
-
-| Capability | Full HCP platform | MedX PoC |
-|---|---|---|
-| Verified HCP login | ✅ | ❌ dropdown doctor |
-| Peer forum / cases | ✅ | ❌ |
-| CME & events | ✅ | ❌ |
-| Personalised article feed | ✅ | ✅ hybrid + learned ranker |
-| Explainable α blend | rare | ✅ slider |
-| Event-log features | at scale | ✅ synthetic 319 events |
-| REST API + live demo | internal | ✅ public |
-
-**Interview line:** *“MedX prototypes retrieval + ranking for an HCP information assistant; coliquio wraps that with community, CME, identity, and regulated content.”*
-
----
-
-## Interview & portfolio
-
-**90-second pitch**
-
-> Doctors see too much content and too little time. MedX retrieves articles with TF-IDF and collaborative SVD, builds features from synthetic engagement logs — impressions, clicks, reads by hour — and ranks the top five with a learned model on Vercel. You can tune the content/collaborative blend with α and compare lunch vs evening via the API. It's a deployable PoC with honest scope: synthetic data, production-style pipeline.
-
-| Question | Answer |
-|---|---|
-| MF vs ranking? | SVD **scores**; ranker **orders** the list |
-| Temporal CF? | **No** — logs add features; CF still rating-only |
-| LightGBM on Vercel? | **No** — sklearn fallback; LightGBM for local dev |
-| How evaluate? | Offline Recall@5 / NDCG@5; online A/B on CTR in production |
-| Tests? | Manual + API smoke tests today; unit tests are a next step |
-
----
-
-## Algorithms implemented
-
-| Component | Algorithm | Where |
-|---|---|---|
-| Content-based | TF-IDF (1–2 grams) + cosine similarity | scikit-learn |
-| Collaborative | Mean-centred SVD (**10 factors**) | NumPy |
-| **Ranker (prod)** | GradientBoostingRegressor on 15 features | sklearn · Vercel |
-| **Ranker (local)** | LambdaRank | LightGBM · `requirements-dev.txt` |
-| Fallback | α-blend + `context_boost` | rules |
-| Similar items | TF-IDF cosine | scikit-learn |
-
-**15 ranker features:** content score, collab score, α, specialty match, complexity, read time, context boost, hour, article impressions/reads, reads at hour, peer reads at hour, doctor avg read hour, lunch share, dwell time.
-
----
-
-## Live demo
-
-**→ [med-x-plum.vercel.app](https://med-x-plum.vercel.app)**
-
-| Step | Action |
-|---|---|
-| 1 | Select a doctor → **Get Recommendations** |
-| 2 | Browse the **carousel** (up to 5 slides) |
-| 3 | Move **α** — changes ranker input and fallback blend |
-| 4 | Watch the **context toast** (auto-dismiss ~5s; uses browser local hour) |
-| 5 | Click a slide → modal + similar articles |
-| 6 | Click **MedX** in the header to reset to the home view |
-
-```bash
-# Health — check which ranker is active
-curl -s https://med-x-plum.vercel.app/api/health | jq
-
-# Lunch vs evening (compare titles)
-curl -s "https://med-x-plum.vercel.app/api/recommend/d1?n=5&hour=12" | jq '.ranker, .recommendations[].title'
-curl -s "https://med-x-plum.vercel.app/api/recommend/d1?n=5&hour=20" | jq '.ranker, .recommendations[].title'
-
-# Force hybrid fallback (no learned ranker)
-curl -s "https://med-x-plum.vercel.app/api/recommend/d1?n=5&hour=12&use_ranker=false" | jq '.ranker'
-```
-
-**Sample doctors:** `d1` cardiology · `d2` neurology · `d8` general practice · `d10` psychiatry
-
----
-
-## How it works
+| **2. Features** | 15 log + content fields | Ranker input |
+| **3. Ranking** | sklearn GBR (prod) / LightGBM (local) | Final list order |
+| **4. Fallback** | α-blend × context boost | When ranker off or no `hour` |
 
 ```
 features  = content, collab, α, specialty_match, complexity, read_time,
@@ -212,39 +112,69 @@ fallback  = α·content + (1−α)·collab  ×  context_boost(hour)
 
 ---
 
-## Tech stack
+## Features
 
-| Layer | Choice |
+| Area | What you get |
 |---|---|
-| API | FastAPI + Uvicorn |
-| ML | scikit-learn 1.8.0, NumPy, pandas |
-| Ranker (prod) | sklearn GBR in `sk_model_bundle.py` |
-| Ranker (dev) | LightGBM in `requirements-dev.txt` |
-| UI | Embedded HTML/CSS/JS in `main.py` (carousel, context toast, modal) |
-| Hosting | Vercel Python (`vercel.json`) |
+| **Hybrid retrieval** | TF-IDF content scores + mean-centred NumPy SVD collaborative scores |
+| **Event logs** | Synthetic impressions, clicks, reads with **hour**, dwell time, day of week |
+| **Learned ranker** | 15 features → **GradientBoostingRegressor** on Vercel; **LightGBM LambdaRank** locally |
+| **Hybrid fallback** | α-blend + time rules if ranker disabled or no `hour` |
+| **Context-aware** | Lunch vs evening fit via `complexity_score` and `reading_time_minutes` |
+| **Carousel UI** | Full-width slides, dots, counter, article modal |
+| **Context toast** | Auto-dismiss popup (~5s) after each recommendation fetch |
+| **Home reset** | Click **MedX** logo to clear doctor, carousel, and modal |
+| **Algorithm controls** | Live α slider (feeds ranker features + fallback blend) |
+| **REST API** | Same logic as UI; Swagger at `/docs` |
+| **Serverless-ready** | UI + ranker models embedded in `.py` files for Vercel |
+
+---
+
+## Algorithms
+
+| Component | Algorithm | Where |
+|---|---|---|
+| Content-based | TF-IDF (1–2 grams) + cosine similarity | scikit-learn |
+| Collaborative | Mean-centred SVD (**10 factors**) | NumPy |
+| **Ranker (prod)** | GradientBoostingRegressor on 15 features | sklearn · Vercel |
+| **Ranker (local)** | LambdaRank | LightGBM · `requirements-dev.txt` |
+| Fallback | α-blend + `context_boost` | rules |
+| Similar items | TF-IDF cosine | scikit-learn |
+
+**15 ranker features:** content score, collab score, α, specialty match, complexity, read time, context boost, hour, article impressions/reads, reads at hour, peer reads at hour, doctor avg read hour, lunch share, dwell time.
+
+**Production note:** Vercel runs `ranker_backend: "sklearn"`. LightGBM is excluded — native libs crash serverless.
 
 ---
 
 ## Quick start
 
+**Requirements:** Python 3.11+
+
 ```bash
 git clone https://github.com/wasimahmadpk/MedX.git
 cd MedX
-python -m venv venv && source venv/bin/activate
+python -m venv venv && source venv/bin/activate   # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 uvicorn main:app --reload
 ```
 
-Open [http://localhost:8000](http://localhost:8000)
+Open [http://localhost:8000](http://localhost:8000) · API docs at [http://localhost:8000/docs](http://localhost:8000/docs)
 
 **Optional — train rankers locally:**
 
 ```bash
 pip install -r requirements-dev.txt
 python scripts/train_ranker.py
-# writes recommender/model_bundle.py (LightGBM)
-#       recommender/sk_model_bundle.py (sklearn → commit for Vercel)
+# writes recommender/model_bundle.py      (LightGBM)
+#       recommender/sk_model_bundle.py    (sklearn — commit this for Vercel)
 ```
+
+| Environment | Ranker | Notes |
+|---|---|---|
+| **Vercel (prod)** | sklearn GBR | Embedded in `sk_model_bundle.py` |
+| **Local dev** | sklearn + LightGBM | LightGBM preferred when installed |
+| **Fallback** | α hybrid + time rules | `use_ranker=false` or ranker not loaded |
 
 ---
 
@@ -300,7 +230,7 @@ python scripts/train_ranker.py
 
 ---
 
-## Dataset & event logs
+## Dataset
 
 Synthetic data in `data/seed_data.py`:
 
@@ -319,37 +249,16 @@ Synthetic data in `data/seed_data.py`:
 
 ---
 
-## Evaluation
+## Tech stack
 
-| Type | MedX today | Production approach |
-|---|---|---|
-| **Manual** | UI, API curls, lunch vs evening | Smoke tests in CI |
-| **Offline** | Not automated | Hold-out ratings → **Recall@5**, **NDCG@5** |
-| **Online** | Not implemented | A/B test CTR, dwell time, CME completion |
-
-**Recall@5** — fraction of relevant items found in the top 5.  
-**NDCG@5** — are the best items ranked highest (order matters).
-
-No automated test suite yet — validation is manual demo + `/api/health`.
-
----
-
-## FAQ
-
-**What does the α slider do?**  
-Feeds the ranker as a feature and controls hybrid fallback when `use_ranker=false`.
-
-**Why sklearn on Vercel, not LightGBM?**  
-LightGBM's native libs crash Vercel serverless. sklearn GBR is pure Python wheels and ships embedded in `sk_model_bundle.py`.
-
-**Is this temporal collaborative filtering?**  
-No. Logs provide **features** (reads at hour, peer patterns); SVD still uses ratings without timestamps.
-
-**Why only 5 recommendations?**  
-Focused feed — one carousel slide at a time.
-
-**MedX vs WebMD?**  
-WebMD = patients. MedX / coliquio = licensed clinicians.
+| Layer | Choice |
+|---|---|
+| API | FastAPI + Uvicorn |
+| ML | scikit-learn 1.8.0, NumPy, pandas |
+| Ranker (prod) | sklearn GBR in `sk_model_bundle.py` |
+| Ranker (dev) | LightGBM in `requirements-dev.txt` |
+| UI | Embedded HTML/CSS/JS in `main.py` |
+| Hosting | Vercel Python (`vercel.json`) |
 
 ---
 
@@ -378,9 +287,9 @@ MedX/
 
 ## Deploy
 
-1. Clone → import at [vercel.com/new](https://vercel.com/new)  
-2. Ensure `recommender/sk_model_bundle.py` is committed (generated by `train_ranker.py`)  
-3. Deploy — no env vars required  
+1. Fork or clone → import at [vercel.com/new](https://vercel.com/new)
+2. Ensure `recommender/sk_model_bundle.py` is committed (from `train_ranker.py`)
+3. Deploy — no env vars required
 
 ```bash
 npm i -g vercel && vercel --prod
@@ -392,14 +301,67 @@ Expected health response:
 ```json
 {
   "status": "ok",
+  "model": "hybrid (TF-IDF + numpy SVD) + learned ranker",
   "ranker_backend": "sklearn",
   "ranker_loaded": true,
+  "ranker_detail": { "lightgbm": "not installed on Vercel" },
   "event_logs": 319,
   "version": "0.2.1"
 }
 ```
 
 > **Vercel bundles `.py` only** — UI and ranker models are embedded Python strings, not separate asset files.
+
+---
+
+## Scope & limitations
+
+MedX is a **recommender PoC**, not a full HCP platform. It does not include verified login, forums, CME, or regulated content workflows.
+
+| Capability | Full HCP platform | MedX PoC |
+|---|---|---|
+| Verified HCP login | ✅ | ❌ dropdown doctor |
+| Peer forum / cases | ✅ | ❌ |
+| CME & events | ✅ | ❌ |
+| Personalised article feed | ✅ | ✅ hybrid + learned ranker |
+| Explainable α blend | rare | ✅ slider |
+| Event-log features | at scale | ✅ synthetic 319 events |
+| REST API + live demo | internal | ✅ public |
+
+**Evaluation today:** manual UI/API checks and lunch-vs-evening comparisons. Offline Recall@5 / NDCG@5 and automated tests are planned next steps.
+
+<details>
+<summary>Interview & portfolio talking points</summary>
+
+**90-second pitch**
+
+> Doctors see too much content and too little time. MedX retrieves articles with TF-IDF and collaborative SVD, builds features from synthetic engagement logs — impressions, clicks, reads by hour — and ranks the top five with a learned model on Vercel. You can tune the content/collaborative blend with α and compare lunch vs evening via the API. It's a deployable PoC with honest scope: synthetic data, production-style pipeline.
+
+| Question | Answer |
+|---|---|
+| MF vs ranking? | SVD **scores**; ranker **orders** the list |
+| Temporal CF? | **No** — logs add features; CF still rating-only |
+| LightGBM on Vercel? | **No** — sklearn fallback; LightGBM for local dev |
+| How evaluate? | Offline Recall@5 / NDCG@5; online A/B on CTR in production |
+| MedX vs WebMD? | WebMD = patients; MedX = licensed-clinician feed prototype |
+
+</details>
+
+---
+
+## FAQ
+
+**What does the α slider do?**  
+Feeds the ranker as a feature and controls hybrid fallback when `use_ranker=false`.
+
+**Why sklearn on Vercel, not LightGBM?**  
+LightGBM's native libs crash Vercel serverless. sklearn GBR ships as pure Python wheels in `sk_model_bundle.py`.
+
+**Is this temporal collaborative filtering?**  
+No. Logs provide **features** (reads at hour, peer patterns); SVD still uses ratings without timestamps.
+
+**Why only 5 recommendations?**  
+Focused feed — one carousel slide at a time.
 
 ---
 
