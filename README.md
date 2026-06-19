@@ -22,7 +22,7 @@ Standalone **MedX** prototype with no third-party branding in the UI.
 | Step | What to do |
 |---|---|
 | 1 | Pick a doctor → **Get Recommendations** |
-| 2 | Swipe the **carousel** (up to 5 articles) |
+| 2 | Swipe the **carousel** (up to 3 articles) |
 | 3 | Drag **α** to shift content vs collaborative weight |
 | 4 | Note the **context toast** (lunch vs evening; uses your local hour) |
 | 5 | Open a slide → article modal + similar articles |
@@ -35,11 +35,11 @@ Standalone **MedX** prototype with no third-party branding in the UI.
 curl -s https://med-x-plum.vercel.app/api/health | jq
 
 # Lunch vs evening — compare ranked titles
-curl -s "https://med-x-plum.vercel.app/api/recommend/d1?n=5&hour=12" | jq '.recommendations[].title'
-curl -s "https://med-x-plum.vercel.app/api/recommend/d1?n=5&hour=20" | jq '.recommendations[].title'
+curl -s "https://med-x-plum.vercel.app/api/recommend/d1?n=3&hour=12" | jq '.recommendations[].title'
+curl -s "https://med-x-plum.vercel.app/api/recommend/d1?n=3&hour=20" | jq '.recommendations[].title'
 
 # Force rule-based hybrid (no learned ranker)
-curl -s "https://med-x-plum.vercel.app/api/recommend/d1?n=5&use_ranker=false" | jq '.ranker'
+curl -s "https://med-x-plum.vercel.app/api/recommend/d1?n=3&use_ranker=false" | jq '.ranker'
 ```
 
 ---
@@ -49,7 +49,7 @@ curl -s "https://med-x-plum.vercel.app/api/recommend/d1?n=5&use_ranker=false" | 
 | | |
 |---|---|
 | **Problem** | Surface the right article for specialty, peers, and available time |
-| **Output** | Top **5** ranked recommendations per doctor |
+| **Output** | Top **3** ranked recommendations per doctor |
 | **Retrieval** | TF-IDF content scores + mean-centred NumPy SVD |
 | **Ranking** | **sklearn GBR** on Vercel · **LightGBM LambdaRank** locally (optional) |
 | **Context** | Time-of-day rules + log patterns (hour, dwell, lunch share) |
@@ -80,7 +80,7 @@ flowchart TD
   D --> F{Ranker loaded?}
   F -->|yes| G[sklearn GBR or LightGBM]
   F -->|no| H[α hybrid + time rules]
-  G --> I[Top 5 carousel]
+  G --> I[Top 3 carousel]
   H --> I
 ```
 
@@ -94,7 +94,7 @@ flowchart TD
 ```
 features  = content, collab, α, specialty_match, complexity, read_time,
             context_boost, hour, log aggregates, dwell, …
-ranker    = sklearn GBR(features)  →  top 5
+ranker    = sklearn GBR(features)  →  top 3
 fallback  = α·content + (1−α)·collab  ×  context_boost(hour)
 ```
 
@@ -195,7 +195,7 @@ python scripts/train_ranker.py
 
 | Param | Default | Description |
 |---|---|---|
-| `n` | `5` | Max 5 results |
+| `n` | `3` | Max 3 results |
 | `alpha` | `0.5` | Content weight (0 = collab, 1 = content) |
 | `hour` | server UTC | 0–23; UI sends browser local hour |
 | `exclude_read` | `true` | Skip already-rated articles |
@@ -328,21 +328,21 @@ MedX is a **recommender PoC**, not a full HCP platform. It does not include veri
 | Event-log features | at scale | ✅ synthetic 319 events |
 | REST API + live demo | internal | ✅ public |
 
-**Evaluation today:** manual UI/API checks and lunch-vs-evening comparisons. Offline Recall@5 / NDCG@5 and automated tests are planned next steps.
+**Evaluation today:** manual UI/API checks and lunch-vs-evening comparisons. Offline Recall@3 / NDCG@3 and automated tests are planned next steps.
 
 <details>
 <summary>Interview & portfolio talking points</summary>
 
 **90-second pitch**
 
-> Doctors see too much content and too little time. MedX retrieves articles with TF-IDF and collaborative SVD, builds features from synthetic engagement logs — impressions, clicks, reads by hour — and ranks the top five with a learned model on Vercel. You can tune the content/collaborative blend with α and compare lunch vs evening via the API. It's a deployable PoC with honest scope: synthetic data, production-style pipeline.
+> Doctors see too much content and too little time. MedX retrieves articles with TF-IDF and collaborative SVD, builds features from synthetic engagement logs — impressions, clicks, reads by hour — and ranks the top three with a learned model on Vercel. You can tune the content/collaborative blend with α and compare lunch vs evening via the API. It's a deployable PoC with honest scope: synthetic data, production-style pipeline.
 
 | Question | Answer |
 |---|---|
 | MF vs ranking? | SVD **scores**; ranker **orders** the list |
 | Temporal CF? | **No** — logs add features; CF still rating-only |
 | LightGBM on Vercel? | **No** — sklearn fallback; LightGBM for local dev |
-| How evaluate? | Offline Recall@5 / NDCG@5; online A/B on CTR in production |
+| How evaluate? | Offline Recall@3 / NDCG@3; online A/B on CTR in production |
 | MedX vs WebMD? | WebMD = patients; MedX = licensed-clinician feed prototype |
 
 </details>
@@ -360,8 +360,8 @@ LightGBM's native libs crash Vercel serverless. sklearn GBR ships as pure Python
 **Is this temporal collaborative filtering?**  
 No. Logs provide **features** (reads at hour, peer patterns); SVD still uses ratings without timestamps.
 
-**Why only 5 recommendations?**  
-Focused feed — one carousel slide at a time.
+**Why only 3 recommendations?**  
+Focused feed — one carousel slide at a time, fewer choices for busy clinicians.
 
 ---
 

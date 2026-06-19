@@ -233,13 +233,13 @@ class MedXRecommender:
     def recommend(
         self,
         doctor_id: str,
-        n: int = 5,
+        n: int = 3,
         alpha: float = 0.5,
         exclude_read: bool = True,
         hour: int | None = None,
         use_ranker: bool = True,
     ) -> tuple[list[dict], str]:
-        n = min(max(n, 1), 5)
+        n = min(max(n, 1), 3)
         slot = get_time_slot(hour) if hour is not None else None
         ranker_mode = "hybrid"
 

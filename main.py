@@ -324,7 +324,7 @@ async function fetchRecommendations() {
   const hour = new Date().getHours();
   setLoading(true);
   switchTab('rec');
-  const res = await fetch(`${API}/api/recommend/${id}?n=5&alpha=${alpha}&hour=${hour}`);
+  const res = await fetch(`${API}/api/recommend/${id}?n=3&alpha=${alpha}&hour=${hour}`);
   const data = await res.json();
   setLoading(false);
   document.getElementById('emptyState').style.display = 'none';
@@ -373,7 +373,7 @@ let recSlides = [];
 let recIndex = 0;
 
 function renderRecCarousel(recommendations) {
-  recSlides = recommendations.slice(0, 5);
+  recSlides = recommendations.slice(0, 3);
   recIndex = 0;
   const track = document.getElementById('recTrack');
   const dots = document.getElementById('recDots');
@@ -655,7 +655,7 @@ async def get_doctor(doctor_id: str):
 @app.get("/api/recommend/{doctor_id}", tags=["Recommendations"])
 async def recommend_for_doctor(
     doctor_id: str,
-    n: int = Query(5, ge=1, le=5, description="Number of recommendations (max 5)"),
+    n: int = Query(3, ge=1, le=3, description="Number of recommendations (max 3)"),
     alpha: float = 0.5,
     exclude_read: bool = True,
     hour: int | None = None,
